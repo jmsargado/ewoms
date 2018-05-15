@@ -73,6 +73,7 @@
 #include <dune/fem/space/common/restrictprolongtuple.hh>
 #include <dune/fem/function/blockvectorfunction.hh>
 #include <dune/fem/misc/capabilities.hh>
+#include <dune/fem/operator/linear/istloperator.hh>
 #endif
 
 #include <limits>
@@ -347,6 +348,7 @@ class FvBaseDiscretization
 
     // discrete function storing solution data
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
+    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction >     LinearOperator;
 
     // problem restriction and prolongation operator for adaptation
     typedef typename GET_PROP_TYPE(TypeTag, Problem)   Problem;
@@ -384,6 +386,7 @@ public:
         , linearizer_(new Linearizer())
 #if HAVE_DUNE_FEM
         , space_( simulator.vanguard().gridPart() )
+        , linearOperator_( std::string(""), space_, space_ )
 #else
         , space_( asImp_().numGridDof() )
 #endif
@@ -1870,6 +1873,7 @@ protected:
     mutable std::array< std::unique_ptr< DiscreteFunction >, historySize > solution_;
 
 #if HAVE_DUNE_FEM
+    LinearOperator linearOperator_;
     std::unique_ptr< RestrictProlong  > restrictProlong_;
     std::unique_ptr< AdaptationManager> adaptationManager_;
 #endif
