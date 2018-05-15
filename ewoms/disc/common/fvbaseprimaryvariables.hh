@@ -121,4 +121,16 @@ public:
 
 } // namespace Ewoms
 
+namespace Dune {
+
+  /** Compatibility traits class for DenseVector and DenseMatrix.
+   */
+  template<class TypeTag>
+  struct FieldTraits< Ewoms::FvBasePrimaryVariables< TypeTag > >
+    : public FieldTraits< Dune::FieldVector<typename GET_PROP_TYPE(TypeTag, Scalar),
+                                            GET_PROP_VALUE(TypeTag, NumEq)> >
+  {
+  };
+}
+
 #endif
