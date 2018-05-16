@@ -49,7 +49,7 @@ namespace Dune
     class EntityPointer;
   }
 
-#if DUNE_VERSION_NEWER(DUNE_FEM, 2, 6 )
+#if DUNE_VERSION_NEWER( DUNE_FEM, 2, 6 )
   template <int dim, int cdim>
   auto referenceElement(const Dune::cpgrid::Geometry<dim, cdim>& geo)
       -> decltype(referenceElement<double, dim>(geo.type()))
