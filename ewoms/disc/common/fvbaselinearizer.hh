@@ -41,6 +41,10 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 
+#if HAVE_DUNE_FEM
+#include <dune/fem/operator/common/stencil.hh>
+#endif
+
 #include <type_traits>
 #include <iostream>
 #include <vector>
@@ -83,6 +87,11 @@ class FvBaseLinearizer
     typedef typename GET_PROP_TYPE(TypeTag, Stencil) Stencil;
     typedef typename GET_PROP_TYPE(TypeTag, ThreadManager) ThreadManager;
 
+#if HAVE_DUNE_FEM
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
+    typedef typename GET_PROP_TYPE(TypeTag, LinearOperator) LinearOperator;
+#endif
+
     typedef typename GET_PROP_TYPE(TypeTag, GridCommHandleFactory) GridCommHandleFactory;
 
     typedef Opm::MathToolbox<Evaluation> Toolbox;
@@ -91,6 +100,7 @@ class FvBaseLinearizer
     typedef typename GridView::template Codim<0>::Iterator ElementIterator;
 
     typedef GlobalEqVector Vector;
+
     typedef JacobianMatrix Matrix;
 
     enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
@@ -106,16 +116,20 @@ class FvBaseLinearizer
 //! \endcond
 
 public:
-    FvBaseLinearizer()
+    FvBaseLinearizer(const DiscreteFunctionSpace& space)
+#if HAVE_DUNE_FEM
+        : linearOperator_( "FvBaseLinearizer::jacobian", space, space ),
+          matrix_( &linearOperator_.matrix() )
+#else
+        matrix_( nullptr )
+#endif
     {
         simulatorPtr_ = 0;
-
-        matrix_ = 0;
     }
 
     ~FvBaseLinearizer()
     {
-        delete matrix_;
+        // delete matrix_;
         auto it = elementCtx_.begin();
         const auto& endIt = elementCtx_.end();
         for (; it != endIt; ++it)
@@ -140,7 +154,9 @@ public:
     void init(Simulator& simulator)
     {
         simulatorPtr_ = &simulator;
+#if ! HAVE_DUNE_FEM
         delete matrix_; // <- note that this even works for nullpointers!
+#endif
         matrix_ = 0;
     }
 
@@ -153,7 +169,9 @@ public:
      */
     void eraseMatrix()
     {
+#if ! HAVE_DUNE_FEM
         delete matrix_; // <- note that this even works for nullpointers!
+#endif
         matrix_ = 0;
     }
 
@@ -278,6 +296,14 @@ private:
     // Construct the BCRS matrix for the Jacobian of the residual function
     void createMatrix_()
     {
+#if HAVE_DUNE_FEM
+        Dune::Fem::DiagonalAndNeighborStencil<DiscreteFunctionSpace,DiscreteFunctionSpace>
+        stencil( linearOperator_.domainSpace(), linearOperator_.rangeSpace() );
+        linearOperator_.reserve(stencil);
+        // linearOperator_.clear();
+        matrix_ = &linearOperator_.matrix();
+        linearOperator_.communicate();
+#else
         size_t numAllDof =  model_().numTotalDof();
 
         // allocate raw matrix
@@ -327,6 +353,7 @@ private:
                 matrix_->addindex(dofIdx, *nIt);
         }
         matrix_->endindices();
+#endif
     }
 
     // reset the global linear system of equations.
@@ -532,8 +559,11 @@ private:
     // EnableConstraints property is true)
     std::map<unsigned, Constraints> constraintsMap_;
 
+    LinearOperator linearOperator_;
+
     // the jacobian matrix
     Matrix *matrix_;
+
     // the right-hand side
     GlobalEqVector residual_;
 

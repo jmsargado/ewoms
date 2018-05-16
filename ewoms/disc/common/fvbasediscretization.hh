@@ -136,6 +136,23 @@ public:
     typedef typename Dune::BCRSMatrix<MatrixBlock> type;
 };
 
+#if HAVE_DUNE_FEM
+SET_PROP(FvBaseDiscretization, LinearOperator)
+{
+private:
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
+    typedef typename GET_PROP_TYPE(TypeTag, PrimaryVariables)      PrimaryVariables;
+
+    // discrete function storing solution data
+    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
+
+public:
+    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
+};
+//#else
+//SET_PROP(FvBaseDiscretization, LinearOperator, typename GET_PROP_TYPE(TypeTag,JacobianMatrix) );
+#endif
+
 //! The maximum allowed number of timestep divisions for the
 //! Newton solver
 SET_INT_PROP(FvBaseDiscretization, MaxTimeStepDivisions, 10);
@@ -344,7 +361,6 @@ class FvBaseDiscretization
 
     // discrete function storing solution data
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
-    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction >     LinearOperator;
 
     // problem restriction and prolongation operator for adaptation
     typedef typename GET_PROP_TYPE(TypeTag, Problem)   Problem;
@@ -377,15 +393,14 @@ public:
         , elementMapper_(gridView_)
         , vertexMapper_(gridView_)
 #endif
-        , newtonMethod_(simulator)
-        , localLinearizer_(ThreadManager::maxThreads())
-        , linearizer_(new Linearizer())
 #if HAVE_DUNE_FEM
         , space_( simulator.vanguard().gridPart() )
-        , linearOperator_( std::string(""), space_, space_ )
 #else
         , space_( asImp_().numGridDof() )
 #endif
+        , newtonMethod_(simulator)
+        , localLinearizer_(ThreadManager::maxThreads())
+        , linearizer_(new Linearizer(space_))
         , enableGridAdaptation_( EWOMS_GET_PARAM(TypeTag, bool, EnableGridAdaptation) )
         , enableIntensiveQuantityCache_(EWOMS_GET_PARAM(TypeTag, bool, EnableIntensiveQuantityCache))
         , enableStorageCache_(EWOMS_GET_PARAM(TypeTag, bool, EnableStorageCache))
@@ -1489,7 +1504,7 @@ public:
     void resetLinearizer ()
     {
         delete linearizer_;
-        linearizer_ = new Linearizer;
+        linearizer_ = new Linearizer( space_ );
         linearizer_->init(simulator_);
     }
 
@@ -1847,6 +1862,14 @@ protected:
     // a vector with all auxiliary equations to be considered
     std::vector<std::shared_ptr<BaseAuxiliaryModule<TypeTag> > > auxEqModules_;
 
+    DiscreteFunctionSpace space_;
+    mutable std::array< std::unique_ptr< DiscreteFunction >, historySize > solution_;
+
+#if HAVE_DUNE_FEM
+    std::unique_ptr< RestrictProlong  > restrictProlong_;
+    std::unique_ptr< AdaptationManager> adaptationManager_;
+#endif
+
     NewtonMethod newtonMethod_;
 
     Ewoms::Timer prePostProcessTimer_;
@@ -1864,15 +1887,6 @@ protected:
     // solution of the previous time step
     mutable IntensiveQuantitiesVector intensiveQuantityCache_[historySize];
     mutable std::vector<bool> intensiveQuantityCacheUpToDate_[historySize];
-
-    DiscreteFunctionSpace space_;
-    mutable std::array< std::unique_ptr< DiscreteFunction >, historySize > solution_;
-
-#if HAVE_DUNE_FEM
-    LinearOperator linearOperator_;
-    std::unique_ptr< RestrictProlong  > restrictProlong_;
-    std::unique_ptr< AdaptationManager> adaptationManager_;
-#endif
 
 
     std::list<BaseOutputModule<TypeTag>*> outputModules_;

@@ -108,6 +108,8 @@ NEW_PROP_TAG(LinearizeNonLocalElements);
 NEW_PROP_TAG(BaseLinearizer);
 //! Type of the global jacobian matrix
 NEW_PROP_TAG(JacobianMatrix);
+//! Type of the global linear operator (around jacobian matrix)
+NEW_PROP_TAG(LinearOperator);
 
 //! A vector of holding a quantity for each equation (usually at a given spatial location)
 NEW_PROP_TAG(EqVector);
