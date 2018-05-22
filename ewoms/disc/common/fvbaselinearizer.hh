@@ -299,7 +299,7 @@ private:
 #if HAVE_DUNE_FEM
         Dune::Fem::DiagonalAndNeighborStencil<DiscreteFunctionSpace,DiscreteFunctionSpace>
         stencil( linearOperator_.domainSpace(), linearOperator_.rangeSpace() );
-        linearOperator_.reserve(stencil);
+        linearOperator_.reserve(stencil, /* implicit = */ false );
         // linearOperator_.clear();
         matrix_ = &linearOperator_.matrix();
         linearOperator_.communicate();
