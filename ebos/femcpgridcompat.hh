@@ -97,6 +97,10 @@ namespace Dune
       }
     };
 
+  } // namespace Fem
+
+} // end namespace Dune
+
 #endif // #if HAVE_DUNE_FEM
 
 #endif // EWOMS_FEM_CPGRID_COMPAT_HH

@@ -132,10 +132,11 @@ namespace Dune {
   struct FieldTraitsImpl;
 
   /** FieldTraitsImpl for classes derived from
-   * Ewoms::FvBasePrimaryVariables: use ParentType (e.g. FieldVector's FieldTraits implementation ) */
+   * Ewoms::FvBasePrimaryVariables: use FieldVector's FieldTraits implementation) */
   template<class TypeTag>
   struct FieldTraitsImpl< TypeTag, true >
-    : public FieldTraits< typename Ewoms::FvBasePrimaryVariables< TypeTag > :: ParentType >
+      : public FieldTraits<FieldVector<typename GET_PROP_TYPE(TypeTag, Scalar),
+                                       GET_PROP_VALUE(TypeTag, NumEq)> >
   {
   };
 
