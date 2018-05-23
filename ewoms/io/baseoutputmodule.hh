@@ -37,10 +37,6 @@
 #include <dune/istl/bvector.hh>
 #include <dune/common/fvector.hh>
 
-#if HAVE_DUNE_FEM
-#include <dune/fem/io/streams/streams.hh>
-#endif
-
 #include <vector>
 #include <sstream>
 #include <string>
@@ -515,43 +511,5 @@ protected:
 #endif
 
 } // namespace Ewoms
-
-#if HAVE_DUNE_FEM
-namespace Dune
-{
-  namespace Fem
-  {
-    ////////////////////////////////////////////////////////////
-    //
-    //  operator << and operator >> for __float128
-    //
-    ////////////////////////////////////////////////////////////
-#if HAVE_QUAD
-    template< class Traits >
-    inline OutStreamInterface< Traits > &
-      operator<< ( OutStreamInterface< Traits >& out,
-                   const __float128 value )
-    {
-      double val = double( value );
-      out.writeDouble( val );
-      return out;
-    }
-
-    template< class Traits >
-    inline InStreamInterface< Traits > &
-      operator>> ( InStreamInterface< Traits >& in,
-                   __float128& value )
-    {
-      double val;
-      in.readDouble( val );
-      value = val;
-      return in;
-    }
-#endif
-
-  } // namespace Fem
-
-} // end namespace Dune
-#endif
 
 #endif
