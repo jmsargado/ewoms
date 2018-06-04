@@ -157,7 +157,7 @@ public:
 
     void prepareMatrix(const LinearOperator& linOp)
     {
-        Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
+        Scalar linearSolverTolerance = 0.01;//EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         // reset linear solver

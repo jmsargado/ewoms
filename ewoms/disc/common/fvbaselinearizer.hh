@@ -235,15 +235,15 @@ public:
      */
 
 #if HAVE_DUNE_FEM
-    const LinearOperator& linearOperator() const { return linearOperator_; }
-    LinearOperator& linearOperator() { return linearOperator_; }
-#endif
-
+    const LinearOperator& matrix() const { return linearOperator_; }
+    LinearOperator& matrix() { return linearOperator_; }
+#else
     const Matrix& matrix() const
     { return *matrix_; }
 
     Matrix& matrix()
     { return *matrix_; }
+#endif
 
     /*!
      * \brief Return constant reference to global residual vector.

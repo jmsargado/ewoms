@@ -37,6 +37,7 @@
 #include <ewoms/common/basicproperties.hh>
 #include <ewoms/io/vtkprimaryvarsmodule.hh>
 #include <ewoms/linear/parallelbicgstabbackend.hh>
+#include <ewoms/linear/parallelistlbackend.hh>
 #include <ewoms/linear/femsolverbackend.hh>
 
 namespace Ewoms {
@@ -62,6 +63,7 @@ SET_SPLICES(FvBaseDiscretization, LinearSolverSplice, LocalLinearizerSplice);
 SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, FemSolverBackend);
 #else
 SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, ParallelBiCGStabLinearSolver);
+//SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, ParallelIstlLinearSolver);
 #endif
 
 //! by default, use finite differences to linearize the system of PDEs
