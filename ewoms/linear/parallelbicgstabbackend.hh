@@ -93,6 +93,8 @@ class ParallelBiCGStabSolverBackend : public ParallelBaseBackend<TypeTag>
     typedef typename ParentType::ParallelPreconditioner ParallelPreconditioner;
     typedef typename ParentType::ParallelScalarProduct ParallelScalarProduct;
 
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
+
     typedef BiCGStabSolver<ParallelOperator,
                            OverlappingVector,
                            ParallelPreconditioner> RawLinearSolver;

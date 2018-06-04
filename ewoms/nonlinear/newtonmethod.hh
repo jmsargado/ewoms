@@ -363,7 +363,11 @@ public:
                 // give it the chance to update the error and thus to terminate the
                 // Newton method without the need of solving the last linearization.
                 updateTimer_.start();
+#if HAVE_DUNE_FEM
+                auto& M = linearizer.linearOperator();
+#else
                 auto& M = linearizer.matrix();
+#endif
                 auto& b = linearizer.residual();
                 linearSolver_.prepareRhs(M, b);
                 asImp_().preSolve_(currentSolution,  b);

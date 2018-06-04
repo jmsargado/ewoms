@@ -151,6 +151,16 @@ public:
 };
 //#else
 //SET_PROP(FvBaseDiscretization, LinearOperator, typename GET_PROP_TYPE(TypeTag,JacobianMatrix) );
+SET_PROP(FvBaseDiscretization, DiscreteFunction)
+{
+private:
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
+    typedef typename GET_PROP_TYPE(TypeTag, PrimaryVariables)      PrimaryVariables;
+public:
+    // discrete function storing solution data
+    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> type;
+};
+
 #endif
 
 //! The maximum allowed number of timestep divisions for the
@@ -359,8 +369,9 @@ class FvBaseDiscretization
 #if HAVE_DUNE_FEM
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace)    DiscreteFunctionSpace;
 
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunction)         DiscreteFunction;
     // discrete function storing solution data
-    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
+    //typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
 
     // problem restriction and prolongation operator for adaptation
     typedef typename GET_PROP_TYPE(TypeTag, Problem)   Problem;
@@ -1788,6 +1799,11 @@ public:
 
     const Ewoms::Timer& updateTimer() const
     { return updateTimer_; }
+
+#if HAVE_DUNE_FEM
+    const DiscreteFunctionSpace& space() const { return space_; }
+#endif
+
 
 protected:
     void resizeAndResetIntensiveQuantitiesCache_()

@@ -78,6 +78,10 @@ NEW_PROP_TAG(GridView);
 
 #if HAVE_DUNE_FEM
 NEW_PROP_TAG(GridPart);
+//! The class describing the discrete function space when dune-fem is used, otherwise it points to the stencil class
+NEW_PROP_TAG(DiscreteFunctionSpace);
+NEW_PROP_TAG(DiscreteFunction);
+NEW_PROP_TAG(LinearOperator);
 #endif
 
 //! Property which tells the Vanguard how often the grid should be refined

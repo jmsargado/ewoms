@@ -27,6 +27,8 @@
 #ifndef EWOMS_FEM_SOLVER_BACKEND_HH
 #define EWOMS_FEM_SOLVER_BACKEND_HH
 
+#include <ewoms/disc/common/fvbaseproperties.hh>
+
 #if HAVE_DUNE_FEM
 
 #include <dune/fem/solver/istlsolver.hh>
@@ -39,63 +41,30 @@
 
 #include <dune/common/fvector.hh>
 
+
+#include <ewoms/linear/parallelbicgstabbackend.hh>
+
 #include <sstream>
 #include <memory>
 #include <iostream>
 
 namespace Ewoms {
+namespace Linear {
+template <class TypeTag>
+class FemSolverBackend;
+}} // namespace Linear, Ewoms
+
+
+namespace Ewoms {
 namespace Properties {
-NEW_TYPE_TAG(ParallelBaseLinearSolver);
+NEW_TYPE_TAG(FemSolverBackend);
 
-// forward declaration of the required property tags
-NEW_PROP_TAG(Simulator);
-NEW_PROP_TAG(Scalar);
-NEW_PROP_TAG(NumEq);
-NEW_PROP_TAG(JacobianMatrix);
-NEW_PROP_TAG(GlobalEqVector);
-NEW_PROP_TAG(VertexMapper);
-NEW_PROP_TAG(GridView);
+SET_TYPE_PROP(FemSolverBackend,
+              LinearSolverBackend,
+              Ewoms::Linear::FemSolverBackend<TypeTag>);
 
-NEW_PROP_TAG(BorderListCreator);
-NEW_PROP_TAG(Overlap);
-NEW_PROP_TAG(OverlappingVector);
-NEW_PROP_TAG(OverlappingMatrix);
-NEW_PROP_TAG(OverlappingScalarProduct);
-NEW_PROP_TAG(OverlappingLinearOperator);
-
-//! The type of the linear solver to be used
-NEW_PROP_TAG(LinearSolverBackend);
-
-//! the preconditioner used by the linear solver
-NEW_PROP_TAG(PreconditionerWrapper);
-
-
-//! The floating point type used internally by the linear solver
-NEW_PROP_TAG(LinearSolverScalar);
-
-/*!
- * \brief Maximum accepted error of the solution of the linear solver.
- */
-NEW_PROP_TAG(LinearSolverTolerance);
-
-/*!
- * \brief Specifies the verbosity of the linear solver
- *
- * By default it is 0, i.e. it doesn't print anything. Setting this
- * property to 1 prints aggregated convergence rates, 2 prints the
- * convergence rate of every iteration of the scheme.
- */
-NEW_PROP_TAG(LinearSolverVerbosity);
-
-//! Maximum number of iterations eyecuted by the linear solver
-NEW_PROP_TAG(LinearSolverMaxIterations);
-
-//! The order of the sequential preconditioner
-NEW_PROP_TAG(PreconditionerOrder);
-
-//! The relaxation factor of the preconditioner
-NEW_PROP_TAG(PreconditionerRelaxation);
 }} // namespace Properties, Ewoms
+
 
 namespace Ewoms {
 namespace Linear {
@@ -133,20 +102,17 @@ protected:
 
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
-    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) LinearOperator;
+    typedef typename GET_PROP_TYPE(TypeTag, LinearOperator) LinearOperator;
     typedef typename GET_PROP_TYPE(TypeTag, GlobalEqVector) Vector;
-    typedef typename GET_PROP_TYPE(TypeTag, BorderListCreator) BorderListCreator;
     typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
-
-    typedef typename GET_PROP_TYPE(TypeTag, Overlap) Overlap;
-    typedef typename GET_PROP_TYPE(TypeTag, OverlappingVector) OverlappingVector;
-    typedef typename GET_PROP_TYPE(TypeTag, OverlappingMatrix) OverlappingMatrix;
 
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunction)      SolverDiscreteFunction;
 
-    typedef ISTLBlockVectorDiscreteFunction< DiscreteFunctionSpace >
+    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction< DiscreteFunctionSpace >
         VectorWrapperDiscreteFunction;
+
+    typedef Dune::Fem::ISTLBICGSTABOp< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
 
     //typedef typename GET_PROP_TYPE(TypeTag, PreconditionerWrapper) PreconditionerWrapper;
     //typedef typename PreconditionerWrapper::SequentialPreconditioner SequentialPreconditioner;
@@ -156,6 +122,7 @@ protected:
 public:
     FemSolverBackend(const Simulator& simulator)
         : simulator_(simulator)
+        , invOp_()
         , x_  ()
         , rhs_()
     {
@@ -169,15 +136,15 @@ public:
      */
     static void registerParameters()
     {
+        /*
         EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverTolerance,
                              "The maximum allowed error between of the linear solver");
-        EWOMS_REGISTER_PARAM(TypeTag, unsigned, LinearSolverOverlapSize,
-                             "The size of the algebraic overlap for the linear solver");
         EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverMaxIterations,
                              "The maximum number of iterations of the linear solver");
         EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverVerbosity,
                              "The verbosity level of the linear solver");
 
+                             */
         // PreconditionerWrapper::registerParameters();
     }
 
@@ -194,15 +161,7 @@ public:
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         // reset linear solver
-        invOp_.reset( new InverseOperator( linOp, linearSolverTolerance, linearSolverAbsTolerance ) );
-
-        if( ! x_ ) {
-            x_.reset( new SolverDiscreteFunction( "FSB::x_", space() ) );
-        }
-
-        if( ! rhs_ ) {
-            rhs_.reset( new SolverDiscreteFunction( "FSB::rhs_", space() ) );
-        }
+        invOp_.reset( new InverseLinearOperator( linOp, linearSolverTolerance, linearSolverAbsTolerance ) );
 
         // not needed
         asImp_().rescale_();
@@ -210,6 +169,10 @@ public:
 
     void prepareRhs(const LinearOperator& linOp, Vector& b)
     {
+        if( ! rhs_ ) {
+            rhs_.reset( new SolverDiscreteFunction( "FSB::rhs_", space() ) );
+        }
+
         // copy to discrete function
         toDF( b, *rhs_ );
 
@@ -224,11 +187,15 @@ public:
      */
     bool solve(Vector& x)
     {
+        if( ! x_ ) {
+            x_.reset( new SolverDiscreteFunction( "FSB::x_", space() ) );
+        }
+
         // copy to discrete function
         toDF( x, *x_ );
 
         // solve with right hand side rhs and store in x
-        invOp_( *rhs_, *x_ );
+        (*invOp_)( *rhs_, *x_ );
 
         // copy back to solution
         toVec( *x_, x );
@@ -243,19 +210,18 @@ protected:
 
     const Implementation& asImp_() const
     { return *static_cast<const Implementation *>(this); }
-    }
 
     const DiscreteFunctionSpace& space() const {
         return simulator_.model().space();
     }
 
-    void toDF( SolutionVector& x, SolverDiscreteFunction& f ) const
+    void toDF( Vector& x, SolverDiscreteFunction& f ) const
     {
         VectorWrapperDiscreteFunction xf( "wrap x", space(), x );
         f.assign( xf );
     }
 
-    void toVec( const SolverDiscreteFunction& f, SolutionVector& x ) const
+    void toVec( const SolverDiscreteFunction& f, Vector& x ) const
     {
         VectorWrapperDiscreteFunction xf( "wrap x", space(), x );
         xf.assign( f );
@@ -293,82 +259,12 @@ protected:
 
     const Simulator& simulator_;
 
+    std::unique_ptr< InverseLinearOperator > invOp_;
+
     std::unique_ptr< SolverDiscreteFunction > x_;
     std::unique_ptr< SolverDiscreteFunction > rhs_;
 };
 }} // namespace Linear, Ewoms
-
-namespace Ewoms {
-namespace Properties {
-//! make the linear solver shut up by default
-SET_INT_PROP(ParallelBaseLinearSolver, LinearSolverVerbosity, 0);
-
-//! set the preconditioner relaxation parameter to 1.0 by default
-SET_SCALAR_PROP(ParallelBaseLinearSolver, PreconditionerRelaxation, 1.0);
-
-//! set the preconditioner order to 0 by default
-SET_INT_PROP(ParallelBaseLinearSolver, PreconditionerOrder, 0);
-
-//! by default use the same kind of floating point values for the linearization and for
-//! the linear solve
-SET_TYPE_PROP(ParallelBaseLinearSolver,
-              LinearSolverScalar,
-              typename GET_PROP_TYPE(TypeTag, Scalar));
-
-SET_PROP(ParallelBaseLinearSolver, OverlappingMatrix)
-{
-    static constexpr int numEq = GET_PROP_VALUE(TypeTag, NumEq);
-    typedef typename GET_PROP_TYPE(TypeTag, LinearSolverScalar) LinearSolverScalar;
-    typedef Dune::FieldMatrix<LinearSolverScalar, numEq, numEq> MatrixBlock;
-    typedef Dune::BCRSMatrix<MatrixBlock> NonOverlappingMatrix;
-    typedef Ewoms::Linear::OverlappingBCRSMatrix<NonOverlappingMatrix> type;
-};
-
-SET_TYPE_PROP(ParallelBaseLinearSolver,
-              Overlap,
-              typename GET_PROP_TYPE(TypeTag, OverlappingMatrix)::Overlap);
-
-SET_PROP(ParallelBaseLinearSolver, OverlappingVector)
-{
-    static constexpr int numEq = GET_PROP_VALUE(TypeTag, NumEq);
-    typedef typename GET_PROP_TYPE(TypeTag, LinearSolverScalar) LinearSolverScalar;
-    typedef Dune::FieldVector<LinearSolverScalar, numEq> VectorBlock;
-    typedef typename GET_PROP_TYPE(TypeTag, Overlap) Overlap;
-    typedef Ewoms::Linear::OverlappingBlockVector<VectorBlock, Overlap> type;
-};
-
-SET_PROP(ParallelBaseLinearSolver, OverlappingScalarProduct)
-{
-    typedef typename GET_PROP_TYPE(TypeTag, OverlappingVector) OverlappingVector;
-    typedef typename GET_PROP_TYPE(TypeTag, Overlap) Overlap;
-    typedef Ewoms::Linear::OverlappingScalarProduct<OverlappingVector, Overlap> type;
-};
-
-SET_PROP(ParallelBaseLinearSolver, OverlappingLinearOperator)
-{
-    typedef typename GET_PROP_TYPE(TypeTag, OverlappingMatrix) OverlappingMatrix;
-    typedef typename GET_PROP_TYPE(TypeTag, OverlappingVector) OverlappingVector;
-    typedef Ewoms::Linear::OverlappingOperator<OverlappingMatrix, OverlappingVector,
-                                               OverlappingVector> type;
-};
-
-#if DUNE_VERSION_NEWER(DUNE_ISTL, 2,7)
-SET_TYPE_PROP(ParallelBaseLinearSolver,
-              PreconditionerWrapper,
-              Ewoms::Linear::PreconditionerWrapperILU<TypeTag>);
-#else
-SET_TYPE_PROP(ParallelBaseLinearSolver,
-              PreconditionerWrapper,
-              Ewoms::Linear::PreconditionerWrapperILU0<TypeTag>);
-#endif
-
-//! set the default overlap size to 2
-SET_INT_PROP(ParallelBaseLinearSolver, LinearSolverOverlapSize, 2);
-
-//! set the default number of maximum iterations for the linear solver
-SET_INT_PROP(ParallelBaseLinearSolver, LinearSolverMaxIterations, 1000);
-} // namespace Properties
-} // namespace Ewoms
 
 #endif // HAVE_DUNE_FEM
 

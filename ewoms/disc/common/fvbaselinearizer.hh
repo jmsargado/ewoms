@@ -233,6 +233,12 @@ public:
     /*!
      * \brief Return constant reference to global Jacobian matrix.
      */
+
+#if HAVE_DUNE_FEM
+    const LinearOperator& linearOperator() const { return linearOperator_; }
+    LinearOperator& linearOperator() { return linearOperator_; }
+#endif
+
     const Matrix& matrix() const
     { return *matrix_; }
 
