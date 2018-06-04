@@ -30,8 +30,8 @@
 #include <ewoms/disc/common/fvbaseproperties.hh>
 
 #if HAVE_DUNE_FEM
-
 #include <dune/fem/solver/istlsolver.hh>
+#include <dune/fem/solver/oemsolver.hh>
 
 #include <ewoms/common/genericguard.hh>
 #include <ewoms/common/propertysystem.hh>
@@ -109,13 +109,12 @@ protected:
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunction)      SolverDiscreteFunction;
 
+    // discrete function to wrap what is used as Vector in eWoms
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction< DiscreteFunctionSpace >
         VectorWrapperDiscreteFunction;
 
     typedef Dune::Fem::ISTLBICGSTABOp< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
-
-    //typedef typename GET_PROP_TYPE(TypeTag, PreconditionerWrapper) PreconditionerWrapper;
-    //typedef typename PreconditionerWrapper::SequentialPreconditioner SequentialPreconditioner;
+    //typedef Dune::Fem::OEMBICGSTABOp< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
 
     enum { dimWorld = GridView::dimensionworld };
 
@@ -144,8 +143,12 @@ public:
         EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverVerbosity,
                              "The verbosity level of the linear solver");
 
+
                              */
         // PreconditionerWrapper::registerParameters();
+
+        // set ilu preconditioner
+        Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu-0" );
     }
 
     /*!
@@ -161,7 +164,8 @@ public:
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         // reset linear solver
-        invOp_.reset( new InverseLinearOperator( linOp, linearSolverTolerance, linearSolverAbsTolerance ) );
+        LinearOperator& op = const_cast< LinearOperator& > (linOp);
+        invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
 
         // not needed
         asImp_().rescale_();

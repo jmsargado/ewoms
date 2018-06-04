@@ -130,9 +130,11 @@ class FvBaseLinearizer
 
 public:
     FvBaseLinearizer(const DiscreteFunctionSpace& space)
-        : matrix_()
+         :
+             //matrix_()
 #if HAVE_DUNE_FEM
-        , linearOperator_( "FvBaseLinearizer::jacobian", space, space )
+        //,
+             linearOperator_( "FvBaseLinearizer::jacobian", space, space )
 #endif
     {
         simulatorPtr_ = 0;
@@ -176,7 +178,7 @@ public:
      */
     void eraseMatrix()
     {
-        matrix_.reset();
+        // matrix_.reset();
     }
 
     /*!
@@ -193,7 +195,7 @@ public:
         // we defer the initialization of the Jacobian matrix until here because the
         // auxiliary modules usually assume the problem, model and grid to be fully
         // initialized...
-        if (!matrix_)
+        // if (!matrix_)
             initFirstIteration_();
 
         int succeeded;
@@ -293,9 +295,9 @@ private:
         createMatrix_();
 
         // initialize the Jacobian matrix and the vector for the residual function
-        (*matrix_) = 0.0;
+        // (*matrix_) = 0.0;
         residual_.resize(model_().numTotalDof());
-        residual_ = 0;
+        resetSystem_();
 
         // create the per-thread context objects
         elementCtx_.resize(ThreadManager::maxThreads());
@@ -310,7 +312,7 @@ private:
         Dune::Fem::DiagonalAndNeighborStencil<DiscreteFunctionSpace,DiscreteFunctionSpace>
         stencil( linearOperator_.domainSpace(), linearOperator_.rangeSpace() );
         linearOperator_.reserve(stencil, /* implicit = */ false );
-        matrix_.reset( &linearOperator_.matrix() );
+        //matrix_.reset( &linearOperator_.matrix() );
         linearOperator_.communicate();
 #else
         size_t numAllDof =  model_().numTotalDof();
@@ -369,7 +371,11 @@ private:
     void resetSystem_()
     {
         residual_ = 0.0;
+#if HAVE_DUNE_FEM
+        linearOperator_.clear();
+#else
         (*matrix_) = 0.0;
+#endif
     }
 
     // query the problem for all constraint degrees of freedom. note that this method is
@@ -431,7 +437,7 @@ private:
 
         applyConstraintsToSolution_();
 
-        *matrix_ = 0.0;
+        //*matrix_ = 0.0;
 
         // relinearize the elements...
         ThreadedEntityIterator<GridView, /*codim=*/0> threadedElemIt(gridView_());
@@ -537,7 +543,8 @@ private:
     {
         auto& model = model_();
         for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx)
-            model.auxiliaryModule(auxModIdx)->linearize(*matrix_, residual_);
+            std::abort();
+            //model.auxiliaryModule(auxModIdx)->linearize(*matrix_, residual_);
     }
 
     // apply the constraints to the solution. (i.e., the solution of constraint degrees
@@ -566,6 +573,8 @@ private:
         if (!enableConstraints_())
             return;
 
+        std::abort();
+        /*
         MatrixBlock idBlock = 0.0;
         for (unsigned i = 0; i < numEq; ++i)
             idBlock[i][i] = 1.0;
@@ -587,6 +596,7 @@ private:
             // make the right-hand side of constraint DOFs zero
             residual_[constraintDofIdx] = 0.0;
         }
+        */
     }
 
     static bool enableConstraints_()
@@ -599,10 +609,10 @@ private:
     // EnableConstraints property is true)
     std::map<unsigned, Constraints> constraintsMap_;
 
-    LinearOperator linearOperator_;
-
     // the jacobian matrix
-    MatrixPointer matrix_;
+    // MatrixPointer matrix_;
+
+    LinearOperator linearOperator_;
 
     // the right-hand side
     GlobalEqVector residual_;

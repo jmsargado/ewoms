@@ -74,6 +74,7 @@
 #include <dune/fem/function/blockvectorfunction.hh>
 #include <dune/fem/misc/capabilities.hh>
 #include <dune/fem/operator/linear/istloperator.hh>
+#include <dune/fem/operator/linear/spoperator.hh>
 #endif
 
 #include <limits>
@@ -148,6 +149,7 @@ private:
 
 public:
     typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
 };
 //#else
 //SET_PROP(FvBaseDiscretization, LinearOperator, typename GET_PROP_TYPE(TypeTag,JacobianMatrix) );
