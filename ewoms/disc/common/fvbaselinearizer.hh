@@ -111,17 +111,28 @@ class FvBaseLinearizer
 
     static const bool linearizeNonLocalElements = GET_PROP_VALUE(TypeTag, LinearizeNonLocalElements);
 
+    struct NoMatrixDeleter
+    {
+        inline void operator ()(Matrix* matrix)
+        {
+        }
+    };
+
+    typedef std::unique_ptr< Matrix
+#if HAVE_DUNE_FEM
+        , NoMatrixDeleter
+#endif
+        > MatrixPointer;
+
     // copying the linearizer is not a good idea
     FvBaseLinearizer(const FvBaseLinearizer&);
 //! \endcond
 
 public:
     FvBaseLinearizer(const DiscreteFunctionSpace& space)
+        : matrix_()
 #if HAVE_DUNE_FEM
-        : linearOperator_( "FvBaseLinearizer::jacobian", space, space ),
-          matrix_( &linearOperator_.matrix() )
-#else
-        matrix_( nullptr )
+        , linearOperator_( "FvBaseLinearizer::jacobian", space, space )
 #endif
     {
         simulatorPtr_ = 0;
@@ -129,7 +140,6 @@ public:
 
     ~FvBaseLinearizer()
     {
-        // delete matrix_;
         auto it = elementCtx_.begin();
         const auto& endIt = elementCtx_.end();
         for (; it != endIt; ++it)
@@ -154,10 +164,7 @@ public:
     void init(Simulator& simulator)
     {
         simulatorPtr_ = &simulator;
-#if ! HAVE_DUNE_FEM
-        delete matrix_; // <- note that this even works for nullpointers!
-#endif
-        matrix_ = 0;
+        eraseMatrix();
     }
 
     /*!
@@ -169,10 +176,7 @@ public:
      */
     void eraseMatrix()
     {
-#if ! HAVE_DUNE_FEM
-        delete matrix_; // <- note that this even works for nullpointers!
-#endif
-        matrix_ = 0;
+        matrix_.reset();
     }
 
     /*!
@@ -300,14 +304,13 @@ private:
         Dune::Fem::DiagonalAndNeighborStencil<DiscreteFunctionSpace,DiscreteFunctionSpace>
         stencil( linearOperator_.domainSpace(), linearOperator_.rangeSpace() );
         linearOperator_.reserve(stencil, /* implicit = */ false );
-        linearOperator_.clear();
-        matrix_ = &linearOperator_.matrix();
+        matrix_.reset( &linearOperator_.matrix() );
         linearOperator_.communicate();
 #else
         size_t numAllDof =  model_().numTotalDof();
 
         // allocate raw matrix
-        matrix_ = new Matrix(numAllDof, numAllDof, Matrix::random);
+        matrix_.reset( new Matrix(numAllDof, numAllDof, Matrix::random) );
 
         Stencil stencil(gridView_(), model_().dofMapper() );
 
@@ -593,7 +596,7 @@ private:
     LinearOperator linearOperator_;
 
     // the jacobian matrix
-    Matrix *matrix_;
+    MatrixPointer matrix_;
 
     // the right-hand side
     GlobalEqVector residual_;

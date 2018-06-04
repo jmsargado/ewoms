@@ -180,7 +180,7 @@ class NewtonMethod
     typedef typename GET_PROP_TYPE(TypeTag, Constraints) Constraints;
     typedef typename GET_PROP_TYPE(TypeTag, EqVector) EqVector;
     typedef typename GET_PROP_TYPE(TypeTag, Linearizer) Linearizer;
-    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
+    //typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
     typedef typename GET_PROP_TYPE(TypeTag, LinearSolverBackend) LinearSolverBackend;
     typedef typename GET_PROP_TYPE(TypeTag, NewtonConvergenceWriter) ConvergenceWriter;
 
