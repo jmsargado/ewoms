@@ -30,6 +30,8 @@
 #include <ewoms/disc/common/fvbaseproperties.hh>
 
 #if HAVE_DUNE_FEM
+
+#define DISABLE_AMG_DIRECTSOLVER 1
 #include <dune/fem/solver/istlsolver.hh>
 #include <dune/fem/solver/oemsolver.hh>
 
