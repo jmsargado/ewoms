@@ -73,6 +73,7 @@
 #include <dune/fem/space/common/restrictprolongtuple.hh>
 #include <dune/fem/function/blockvectorfunction.hh>
 #include <dune/fem/misc/capabilities.hh>
+#include <dune/fem/operator/linear/petscoperator.hh>
 #include <dune/fem/operator/linear/istloperator.hh>
 #include <dune/fem/operator/linear/spoperator.hh>
 #endif
@@ -148,6 +149,7 @@ private:
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
 
 public:
+    //typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
     typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
     //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
 };
@@ -386,7 +388,12 @@ class FvBaseDiscretization
     typedef Dune::Fem::AdaptationManager<Grid, RestrictProlong  > AdaptationManager;
 #else
     typedef BlockVectorWrapper  DiscreteFunction;
-    typedef size_t              DiscreteFunctionSpace;
+    struct DiscreteFunctionSpace
+    {
+        size_t nDofs_;
+        DiscreteFunctionSpace( const size_t n ) : nDofs_( n ) {}
+        void extendSize( const size_t ) {}
+    };
 #endif
 
     // copying a discretization object is not a good idea
@@ -1736,6 +1743,8 @@ public:
             solution(timeIdx).resize(numDof);
 
         auxMod->applyInitial();
+
+        space_.extendSize( asImp_().numAuxiliaryDof() );
     }
 
     /*!

@@ -55,6 +55,52 @@ namespace Ewoms {
 template<class TypeTag>
 class EcfvDiscretization;
 
+
+#if HAVE_DUNE_FEM
+
+template <class DomainSpace, class RangeSpace>
+struct DiagonalAndNeighborPlusAuxStencil
+: public Dune::Fem::DiagonalAndNeighborStencil< DomainSpace, RangeSpace >
+{
+    typedef Dune::Fem::DiagonalAndNeighborStencil< DomainSpace, RangeSpace > ParentType;
+protected:
+    using ParentType :: globalStencil_;
+
+public:
+    DiagonalAndNeighborPlusAuxStencil( const DomainSpace &dSpace, const RangeSpace &rSpace )
+        : ParentType( dSpace, rSpace )
+    {
+    }
+
+    template <class Model>
+    void addAuxiliaryStencil( const Model& model )
+    {
+        size_t numAllDof = model.numTotalDof();
+
+        // for the main model, find out the global indices of the neighboring degrees of
+        // freedom of each primary degree of freedom
+        typedef std::set<unsigned> NeighborSet;
+        std::vector<NeighborSet> neighbors(numAllDof);
+
+        size_t numAuxMod = model.numAuxiliaryModules();
+        for (unsigned auxModIdx = 0; auxModIdx < numAuxMod; ++auxModIdx)
+            model.auxiliaryModule(auxModIdx)->addNeighbors( neighbors );
+
+        for( size_t i=0; i<numAllDof; ++i )
+        {
+            if( ! neighbors[ i ].empty() )
+            {
+                auto& sten = globalStencil_[ i ];
+                for( const auto& idx : neighbors[ i ] )
+                    sten.insert( idx );
+            }
+        }
+    }
+
+};
+
+#endif
+
 /*!
  * \ingroup FiniteVolumeDiscretizations
  *
@@ -308,14 +354,14 @@ private:
     // Construct the BCRS matrix for the Jacobian of the residual function
     void createMatrix_()
     {
+        const auto& model = model_();
 #if HAVE_DUNE_FEM
-        Dune::Fem::DiagonalAndNeighborStencil<DiscreteFunctionSpace,DiscreteFunctionSpace>
-        stencil( linearOperator_.domainSpace(), linearOperator_.rangeSpace() );
+        DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace >
+            stencil( linearOperator_.domainSpace(), linearOperator_.rangeSpace() );
+        stencil.addAuxiliaryStencil( model );
         linearOperator_.reserve(stencil, /* implicit = */ false );
-        //matrix_.reset( &linearOperator_.matrix() );
-        linearOperator_.communicate();
 #else
-        size_t numAllDof =  model_().numTotalDof();
+        size_t numAllDof = model.numTotalDof();
 
         // allocate raw matrix
         matrix_.reset( new Matrix(numAllDof, numAllDof, Matrix::random) );
@@ -472,6 +518,7 @@ private:
         applyConstraintsToLinearization_();
 
         linearizeAuxiliaryEquations_();
+        linearOperator_.communicate();
     }
 
     // linearize an element in the interior of the process' grid partition
@@ -543,8 +590,7 @@ private:
     {
         auto& model = model_();
         for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx)
-            std::abort();
-            //model.auxiliaryModule(auxModIdx)->linearize(*matrix_, residual_);
+            model.auxiliaryModule(auxModIdx)->linearize(linearOperator_, residual_);
     }
 
     // apply the constraints to the solution. (i.e., the solution of constraint degrees

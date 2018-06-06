@@ -33,7 +33,7 @@
 
 #define DISABLE_AMG_DIRECTSOLVER 1
 #include <dune/fem/solver/istlsolver.hh>
-#include <dune/fem/solver/oemsolver.hh>
+#include <dune/fem/solver/petscsolver.hh>
 
 #include <ewoms/common/genericguard.hh>
 #include <ewoms/common/propertysystem.hh>
@@ -116,6 +116,7 @@ protected:
         VectorWrapperDiscreteFunction;
 
     typedef Dune::Fem::ISTLBICGSTABOp< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
+    //typedef Dune::Fem::PetscInverseOperator< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
     //typedef Dune::Fem::OEMBICGSTABOp< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
 
     enum { dimWorld = GridView::dimensionworld };
@@ -150,7 +151,8 @@ public:
         // PreconditionerWrapper::registerParameters();
 
         // set ilu preconditioner
-        Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu-0" );
+        Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
+        Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
     }
 
     /*!
