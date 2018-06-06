@@ -355,9 +355,6 @@ public:
             diagBlock[i][i] = 1.0;
 
         MatrixBlock block;
-        auto copy = [] (Scalar& a, const Scalar& b ) {
-          a = b;
-        };
 
         if (wellStatus() == Shut) {
             // if the well is shut, make the auxiliary DOFs a trivial equation in the
@@ -368,8 +365,8 @@ public:
 
             block = 0.0;
             for (; wellDofIt != wellDofEndIt; ++ wellDofIt) {
-                matrix.applyToBlock( wellGlobalDofIdx, wellDofIt->first, block, copy );
-                matrix.applyToBlock( wellDofIt->first, wellGlobalDofIdx, block, copy );
+                matrix.setBlock( wellGlobalDofIdx, wellDofIt->first, block );
+                matrix.setBlock( wellDofIt->first, wellGlobalDofIdx, block );
                 //matrix[wellGlobalDofIdx][wellDofIt->first] = 0.0;
                 //matrix[wellDofIt->first][wellGlobalDofIdx] = 0.0;
                 residual[wellGlobalDofIdx] = 0.0;
@@ -418,7 +415,7 @@ public:
                 // go back to the original primary variables
                 priVars[priVarIdx] -= eps;
             }
-            matrix.applyToBlock( wellGlobalDofIdx, gridDofIdx, block, copy );
+            matrix.setBlock( wellGlobalDofIdx, gridDofIdx, block );
 
             //
             /////////////
@@ -474,7 +471,7 @@ public:
             block = 0.0;
             for (unsigned eqIdx = 0; eqIdx < numModelEq; ++ eqIdx)
                 block[eqIdx][0] = - Toolbox::value(q[eqIdx])/dofVars.totalVolume;
-            matrix.applyToBlock( gridDofIdx, wellGlobalDofIdx, block, copy );
+            matrix.setBlock( gridDofIdx, wellGlobalDofIdx, block );
 
             //
             /////////////
@@ -488,7 +485,7 @@ public:
         Scalar wellResidStar = wellResidual_(actualBottomHolePressure_ + eps);
         diagBlock[0][0] = (wellResidStar - wellResid)/eps;
 
-        matrix.applyToBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock, copy );
+        matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
     }
 
 
