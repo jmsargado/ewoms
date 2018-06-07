@@ -56,10 +56,12 @@ NEW_PROP_TAG(ParallelBiCGStabLinearSolver);
 NEW_PROP_TAG(LocalLinearizerSplice);
 NEW_PROP_TAG(FiniteDifferenceLocalLinearizer);
 
+NEW_PROP_TAG(DiscreteFunctionSpace);
+
 SET_SPLICES(FvBaseDiscretization, LinearSolverSplice, LocalLinearizerSplice);
 
 //! use a parallel BiCGStab linear solver by default
-#if HAVE_DUNE_FEM
+#if USE_DUNE_FEM_SOLVERS
 SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, FemSolverBackend);
 #else
 SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, ParallelBiCGStabLinearSolver);

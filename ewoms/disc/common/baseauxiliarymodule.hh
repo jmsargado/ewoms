@@ -45,7 +45,6 @@ NEW_PROP_TAG(Scalar);
 NEW_PROP_TAG(DofMapper);
 NEW_PROP_TAG(GlobalEqVector);
 NEW_PROP_TAG(JacobianMatrix);
-NEW_PROP_TAG(LinearOperator);
 } // namespace Properties
 
 /*!
@@ -63,7 +62,6 @@ class BaseAuxiliaryModule
     typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
     typedef typename GET_PROP_TYPE(TypeTag, GlobalEqVector) GlobalEqVector;
     typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
-    typedef typename GET_PROP_TYPE(TypeTag, LinearOperator) LinearOperator;
 
 protected:
     typedef std::set<unsigned> NeighborSet;
@@ -117,7 +115,7 @@ public:
     /*!
      * \brief Linearize the auxiliary equation.
      */
-    virtual void linearize(LinearOperator& matrix, GlobalEqVector& residual) = 0;
+    virtual void linearize(JacobianMatrix& matrix, GlobalEqVector& residual) = 0;
 
 private:
     int dofOffset_;

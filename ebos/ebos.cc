@@ -27,6 +27,10 @@
  */
 #include "config.h"
 
+#if HAVE_DUNE_FEM
+#define USE_DUNE_FEM_SOLVERS 1
+#endif
+
 #include <opm/material/common/quad.hpp>
 #include <ewoms/common/start.hh>
 

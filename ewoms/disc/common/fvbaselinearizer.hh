@@ -41,7 +41,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 
-#if HAVE_DUNE_FEM
+#if USE_DUNE_FEM_SOLVERS
 #include <dune/fem/operator/common/stencil.hh>
 #endif
 
@@ -56,7 +56,7 @@ template<class TypeTag>
 class EcfvDiscretization;
 
 
-#if HAVE_DUNE_FEM
+#if USE_DUNE_FEM_SOLVERS
 
 template <class DomainSpace, class RangeSpace>
 struct DiagonalAndNeighborPlusAuxStencil
@@ -133,10 +133,7 @@ class FvBaseLinearizer
     typedef typename GET_PROP_TYPE(TypeTag, Stencil) Stencil;
     typedef typename GET_PROP_TYPE(TypeTag, ThreadManager) ThreadManager;
 
-#if HAVE_DUNE_FEM
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
-    typedef typename GET_PROP_TYPE(TypeTag, LinearOperator) LinearOperator;
-#endif
 
     typedef typename GET_PROP_TYPE(TypeTag, GridCommHandleFactory) GridCommHandleFactory;
 
@@ -164,24 +161,14 @@ class FvBaseLinearizer
         }
     };
 
-    typedef std::unique_ptr< Matrix
-#if HAVE_DUNE_FEM
-        , NoMatrixDeleter
-#endif
-        > MatrixPointer;
-
     // copying the linearizer is not a good idea
     FvBaseLinearizer(const FvBaseLinearizer&);
 //! \endcond
 
 public:
     FvBaseLinearizer(const DiscreteFunctionSpace& space)
-         : space_( space )
-             //matrix_()
-#if HAVE_DUNE_FEM
-        //,
-        //     linearOperator_( "FvBaseLinearizer::jacobian", space, space )
-#endif
+         : space_( space ),
+           matrix_()
     {
         simulatorPtr_ = 0;
     }
@@ -224,8 +211,7 @@ public:
      */
     void eraseMatrix()
     {
-        linearOperator_.reset();
-        // matrix_.reset();
+        matrix_.reset();
     }
 
     /*!
@@ -242,8 +228,7 @@ public:
         // we defer the initialization of the Jacobian matrix until here because the
         // auxiliary modules usually assume the problem, model and grid to be fully
         // initialized...
-        //if (!matrix_)
-        if (!linearOperator_)
+        if (!matrix_)
             initFirstIteration_();
 
         int succeeded;
@@ -284,24 +269,11 @@ public:
      * \brief Return constant reference to global Jacobian matrix.
      */
 
-#if HAVE_DUNE_FEM
-    const LinearOperator& matrix() const
-    {
-        assert( linearOperator_ );
-        return *linearOperator_;
-    }
-
-    LinearOperator& matrix() {
-        assert( linearOperator_ );
-        return *linearOperator_;
-    }
-#else
     const Matrix& matrix() const
     { return *matrix_; }
 
     Matrix& matrix()
     { return *matrix_; }
-#endif
 
     /*!
      * \brief Return constant reference to global residual vector.
@@ -365,12 +337,11 @@ private:
     void createMatrix_()
     {
         const auto& model = model_();
-#if HAVE_DUNE_FEM
-        linearOperator_.reset( new LinearOperator( "FvBaseLinearizer::jacobian", space_, space_ ) );
+#if USE_DUNE_FEM_SOLVERS
+        matrix_.reset( new Matrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
         DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace > stencil( space_, space_ );
         stencil.addAuxiliaryStencil( model );
-        //linearOperator_.reserve(stencil, /* implicit = */ false );
-        linearOperator_->reserve(stencil);
+        matrix_->reserve(stencil);
 #else
         size_t numAllDof = model.numTotalDof();
 
@@ -401,7 +372,6 @@ private:
 
         // add the additional neighbors and degrees of freedom caused by the auxiliary
         // equations
-        const auto& model = model_();
         size_t numAuxMod = model.numAuxiliaryModules();
         for (unsigned auxModIdx = 0; auxModIdx < numAuxMod; ++auxModIdx)
             model.auxiliaryModule(auxModIdx)->addNeighbors(neighbors);
@@ -428,8 +398,8 @@ private:
     void resetSystem_()
     {
         residual_ = 0.0;
-#if HAVE_DUNE_FEM
-        linearOperator_->clear();
+#if USE_DUNE_FEM_SOLVERS
+        matrix_->clear();
 #else
         (*matrix_) = 0.0;
 #endif
@@ -529,8 +499,8 @@ private:
         applyConstraintsToLinearization_();
 
         linearizeAuxiliaryEquations_();
-#if HAVE_DUNE_FEM
-        linearOperator_->communicate();
+#if USE_DUNE_FEM_SOLVERS
+        matrix_->communicate();
 #endif
     }
 
@@ -550,7 +520,7 @@ private:
         if (GET_PROP_VALUE(TypeTag, UseLinearizationLock))
             globalMatrixMutex_.lock();
 
-#if HAVE_DUNE_FEM
+#if USE_DUNE_FEM_SOLVERS
         const size_t numPrimaryDof = elementCtx->numPrimaryDof(/*timeIdx=*/0);
         for (unsigned primaryDofIdx = 0; primaryDofIdx < numPrimaryDof; ++ primaryDofIdx) {
             unsigned globI = elementCtx->globalSpaceIndex(/*spaceIdx=*/primaryDofIdx, /*timeIdx=*/0);
@@ -561,11 +531,10 @@ private:
 
         for (unsigned dofIdx = 0; dofIdx < elementCtx->numDof(/*timeIdx=*/0); ++ dofIdx)
         {
-            auto localMatrix = linearOperator_->localMatrix( elem,  stencil.element( dofIdx ) );//, elem );
+            auto localMatrix = matrix_->localMatrix( elem,  stencil.element( dofIdx ) );//, elem );
             for (unsigned primaryDofIdx = 0; primaryDofIdx < numPrimaryDof; ++ primaryDofIdx)
             {
                 const auto& localJac = localLinearizer.jacobian(dofIdx, primaryDofIdx);
-
                 for( int i=0; i<numEq; ++i )
                 {
                     for( int j=0; j<numEq; ++j )
@@ -603,7 +572,7 @@ private:
     {
         auto& model = model_();
         for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx)
-            model.auxiliaryModule(auxModIdx)->linearize(*linearOperator_, residual_);
+            model.auxiliaryModule(auxModIdx)->linearize(*matrix_, residual_);
     }
 
     // apply the constraints to the solution. (i.e., the solution of constraint degrees
@@ -671,9 +640,7 @@ private:
     std::map<unsigned, Constraints> constraintsMap_;
 
     // the jacobian matrix
-    // MatrixPointer matrix_;
-
-    std::unique_ptr< LinearOperator > linearOperator_;
+    std::unique_ptr< JacobianMatrix > matrix_;
 
     // the right-hand side
     GlobalEqVector residual_;

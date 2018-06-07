@@ -1101,6 +1101,11 @@ public:
         return static_cast<unsigned>(vertexMapper_.subIndex(element_, static_cast<int>(dofIdx), /*codim=*/dim));
     }
 
+    const Element& element( unsigned dofIdx) const
+    {
+        return element_;
+    }
+
     /*!
      * \brief Return the global space index given the index of a degree of
      *        freedom.

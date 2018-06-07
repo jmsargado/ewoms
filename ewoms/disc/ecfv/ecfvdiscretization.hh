@@ -91,6 +91,12 @@ private:
 public:
     typedef Dune::Fem::FiniteVolumeSpace< FunctionSpace, GridPart, 0 > type;
 };
+#else
+SET_PROP(EcfvDiscretization, DiscreteFunctionSpace)
+{
+public:
+    typedef size_t type;
+};
 #endif
 
 //! Set the border list creator for to the one of an element based

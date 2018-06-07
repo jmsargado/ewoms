@@ -98,6 +98,12 @@ public:
     // Lagrange discrete function space with unknowns at the cell vertices
     typedef Dune::Fem::LagrangeDiscreteFunctionSpace< FunctionSpace, GridPart, 1 > type;
 };
+#else
+SET_PROP(EcfvDiscretization, DiscreteFunctionSpace)
+{
+public:
+    typedef size_t type;
+};
 #endif
 
 //! Set the border list creator for vertices

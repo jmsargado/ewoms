@@ -127,17 +127,6 @@ SET_TYPE_PROP(FvBaseDiscretization, DiscExtensiveQuantities, Ewoms::FvBaseExtens
 //! Calculates the gradient of any quantity given the index of a flux approximation point
 SET_TYPE_PROP(FvBaseDiscretization, GradientCalculator, Ewoms::FvBaseGradientCalculator<TypeTag>);
 
-//! Set the type of a global jacobian matrix from the solution types
-SET_PROP(FvBaseDiscretization, JacobianMatrix)
-{
-private:
-    typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
-    enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
-    typedef typename Dune::FieldMatrix<Scalar, numEq, numEq> MatrixBlock;
-public:
-    typedef typename Dune::BCRSMatrix<MatrixBlock> type;
-};
-
 #if HAVE_DUNE_FEM
 SET_PROP(FvBaseDiscretization, DiscreteFunction)
 {
@@ -149,7 +138,7 @@ public:
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> type;
 };
 
-SET_PROP(FvBaseDiscretization, LinearOperator)
+SET_PROP(FvBaseDiscretization, JacobianMatrix)
 {
 private:
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
@@ -161,8 +150,17 @@ public:
     //typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
     //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
 };
-//#else
-//SET_PROP(FvBaseDiscretization, LinearOperator, typename GET_PROP_TYPE(TypeTag,JacobianMatrix) );
+#else
+//! Set the type of a global jacobian matrix from the solution types
+SET_PROP(FvBaseDiscretization, JacobianMatrix)
+{
+private:
+    typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
+    enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
+    typedef typename Dune::FieldMatrix<Scalar, numEq, numEq> MatrixBlock;
+public:
+    typedef typename Dune::BCRSMatrix<MatrixBlock> type;
+};
 #endif
 
 //! The maximum allowed number of timestep divisions for the

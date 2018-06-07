@@ -77,7 +77,6 @@ class EclPeacemanWell : public BaseAuxiliaryModule<TypeTag>
 
     typedef typename AuxModule::NeighborSet NeighborSet;
     typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
-    typedef typename GET_PROP_TYPE(TypeTag, LinearOperator) LinearOperator;
     typedef typename GET_PROP_TYPE(TypeTag, SolutionVector) SolutionVector;
     typedef typename GET_PROP_TYPE(TypeTag, GlobalEqVector) GlobalEqVector;
 
@@ -340,7 +339,7 @@ public:
     /*!
      * \copydoc Ewoms::BaseAuxiliaryModule::linearize()
      */
-    virtual void linearize(LinearOperator& matrix, GlobalEqVector& residual)
+    virtual void linearize(JacobianMatrix& matrix, GlobalEqVector& residual)
     {
         const SolutionVector& curSol = simulator_.model().solution(/*timeIdx=*/0);
 
@@ -365,10 +364,13 @@ public:
 
             block = 0.0;
             for (; wellDofIt != wellDofEndIt; ++ wellDofIt) {
+#if USE_DUNE_FEM_SOLVERS
                 matrix.setBlock( wellGlobalDofIdx, wellDofIt->first, block );
                 matrix.setBlock( wellDofIt->first, wellGlobalDofIdx, block );
-                //matrix[wellGlobalDofIdx][wellDofIt->first] = 0.0;
-                //matrix[wellDofIt->first][wellGlobalDofIdx] = 0.0;
+#else
+                matrix[wellGlobalDofIdx][wellDofIt->first] = 0.0;
+                matrix[wellDofIt->first][wellGlobalDofIdx] = 0.0;
+#endif
                 residual[wellGlobalDofIdx] = 0.0;
             }
             return;
@@ -415,7 +417,11 @@ public:
                 // go back to the original primary variables
                 priVars[priVarIdx] -= eps;
             }
+#if USE_DUNE_FEM_SOLVERS
             matrix.setBlock( wellGlobalDofIdx, gridDofIdx, block );
+#else
+            matrix[wellGlobalDofIdx][gridDofIdx] = block;
+#endif
 
             //
             /////////////
@@ -471,7 +477,12 @@ public:
             block = 0.0;
             for (unsigned eqIdx = 0; eqIdx < numModelEq; ++ eqIdx)
                 block[eqIdx][0] = - Toolbox::value(q[eqIdx])/dofVars.totalVolume;
+
+#if USE_DUNE_FEM_SOLVERS
             matrix.setBlock( gridDofIdx, wellGlobalDofIdx, block );
+#else
+            matrix[gridDofIdx][wellGlobalDofIdx] = block;
+#endif
 
             //
             /////////////
@@ -485,7 +496,11 @@ public:
         Scalar wellResidStar = wellResidual_(actualBottomHolePressure_ + eps);
         diagBlock[0][0] = (wellResidStar - wellResid)/eps;
 
+#if USE_DUNE_FEM_SOLVERS
         matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
+#else
+        matrix[ wellGlobalDofIdx ][ wellGlobalDofIdx ] = diagBlock;
+#endif
     }
 
 
