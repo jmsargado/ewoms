@@ -139,22 +139,6 @@ public:
 };
 
 #if HAVE_DUNE_FEM
-SET_PROP(FvBaseDiscretization, LinearOperator)
-{
-private:
-    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
-    typedef typename GET_PROP_TYPE(TypeTag, PrimaryVariables)      PrimaryVariables;
-
-    // discrete function storing solution data
-    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
-
-public:
-    //typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
-    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
-    //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
-};
-//#else
-//SET_PROP(FvBaseDiscretization, LinearOperator, typename GET_PROP_TYPE(TypeTag,JacobianMatrix) );
 SET_PROP(FvBaseDiscretization, DiscreteFunction)
 {
 private:
@@ -165,6 +149,20 @@ public:
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> type;
 };
 
+SET_PROP(FvBaseDiscretization, LinearOperator)
+{
+private:
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
+    typedef typename GET_PROP_TYPE(TypeTag, PrimaryVariables)      PrimaryVariables;
+    // discrete function storing solution data
+    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
+public:
+    typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    //typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
+};
+//#else
+//SET_PROP(FvBaseDiscretization, LinearOperator, typename GET_PROP_TYPE(TypeTag,JacobianMatrix) );
 #endif
 
 //! The maximum allowed number of timestep divisions for the

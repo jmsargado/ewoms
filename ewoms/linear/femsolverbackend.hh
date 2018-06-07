@@ -34,6 +34,7 @@
 #define DISABLE_AMG_DIRECTSOLVER 1
 #include <dune/fem/solver/istlsolver.hh>
 #include <dune/fem/solver/petscsolver.hh>
+#include <dune/fem/solver/krylovinverseoperators.hh>
 
 #include <ewoms/common/genericguard.hh>
 #include <ewoms/common/propertysystem.hh>
@@ -109,15 +110,33 @@ protected:
     typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
 
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
-    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunction)      SolverDiscreteFunction;
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunction)      DiscreteFunction;
 
     // discrete function to wrap what is used as Vector in eWoms
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction< DiscreteFunctionSpace >
         VectorWrapperDiscreteFunction;
 
-    typedef Dune::Fem::ISTLBICGSTABOp< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
-    //typedef Dune::Fem::PetscInverseOperator< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
-    //typedef Dune::Fem::OEMBICGSTABOp< SolverDiscreteFunction, LinearOperator >  InverseLinearOperator;
+    template <int d, class LinOp>
+    struct SolverSelector
+    {
+        //typedef Dune::Fem::OEMBICGSTABOp< SolverDiscreteFunction, LinearOperator >  type;
+        typedef Dune::Fem::KrylovInverseOperator< DiscreteFunction >  type;
+    };
+
+    template <int d>
+    struct SolverSelector< d, Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > >
+    {
+        typedef Dune::Fem::PetscInverseOperator< DiscreteFunction, LinearOperator >  type;
+    };
+
+    template <int d>
+    struct SolverSelector< d, Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > >
+    {
+        typedef Dune::Fem::ISTLBICGSTABOp< DiscreteFunction, LinearOperator >  type;
+    };
+
+    // select solver type depending on linear operator type
+    typedef typename SolverSelector<0, LinearOperator > :: type   InverseLinearOperator;
 
     enum { dimWorld = GridView::dimensionworld };
 
@@ -125,8 +144,6 @@ public:
     FemSolverBackend(const Simulator& simulator)
         : simulator_(simulator)
         , invOp_()
-        , x_  ()
-        , rhs_()
     {
     }
 
@@ -150,9 +167,16 @@ public:
                              */
         // PreconditionerWrapper::registerParameters();
 
-        // set ilu preconditioner
+        // set ilu preconditioner istl
         Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
         Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
+
+        // possible solvers: cg, bicg, bicgstab, gmres
+        Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
+        // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
+        Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
+
+        //Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
     }
 
     /*!
@@ -162,13 +186,12 @@ public:
     void eraseMatrix()
     { cleanup_(); }
 
-    void prepareMatrix(const LinearOperator& linOp)
+    void prepareMatrix(const LinearOperator& op)
     {
         Scalar linearSolverTolerance = 0.01;//EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         // reset linear solver
-        LinearOperator& op = const_cast< LinearOperator& > (linOp);
         invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
 
         // not needed
@@ -177,14 +200,7 @@ public:
 
     void prepareRhs(const LinearOperator& linOp, Vector& b)
     {
-        if( ! rhs_ ) {
-            rhs_.reset( new SolverDiscreteFunction( "FSB::rhs_", space() ) );
-        }
-
-        // copy to discrete function
-        toDF( b, *rhs_ );
-
-        // not needed ?
+        rhs_.reset( new VectorWrapperDiscreteFunction( "FSB::rhs", space(), b ) );
         // rhs_.communicate();
     }
 
@@ -195,18 +211,11 @@ public:
      */
     bool solve(Vector& x)
     {
-        if( ! x_ ) {
-            x_.reset( new SolverDiscreteFunction( "FSB::x_", space() ) );
-        }
-
-        // copy to discrete function
-        toDF( x, *x_ );
+        // wrap x into discrete function X (no copy)
+        VectorWrapperDiscreteFunction X( "FSB::x", space(), x );
 
         // solve with right hand side rhs and store in x
-        (*invOp_)( *rhs_, *x_ );
-
-        // copy back to solution
-        toVec( *x_, x );
+        (*invOp_)( *rhs_, X );
 
         // return the result of the solver
         return true; //result;
@@ -223,6 +232,7 @@ protected:
         return simulator_.model().space();
     }
 
+    /*
     void toDF( Vector& x, SolverDiscreteFunction& f ) const
     {
         VectorWrapperDiscreteFunction xf( "wrap x", space(), x );
@@ -234,6 +244,7 @@ protected:
         VectorWrapperDiscreteFunction xf( "wrap x", space(), x );
         xf.assign( f );
     }
+    */
 
     void rescale_()
     {
@@ -261,7 +272,6 @@ protected:
     void cleanup_()
     {
         invOp_.reset();
-        x_.reset();
         rhs_.reset();
     }
 
@@ -269,8 +279,7 @@ protected:
 
     std::unique_ptr< InverseLinearOperator > invOp_;
 
-    std::unique_ptr< SolverDiscreteFunction > x_;
-    std::unique_ptr< SolverDiscreteFunction > rhs_;
+    std::unique_ptr< VectorWrapperDiscreteFunction > rhs_;
 };
 }} // namespace Linear, Ewoms
 

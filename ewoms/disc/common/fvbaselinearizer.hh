@@ -176,11 +176,11 @@ class FvBaseLinearizer
 
 public:
     FvBaseLinearizer(const DiscreteFunctionSpace& space)
-         :
+         : space_( space )
              //matrix_()
 #if HAVE_DUNE_FEM
         //,
-             linearOperator_( "FvBaseLinearizer::jacobian", space, space )
+        //     linearOperator_( "FvBaseLinearizer::jacobian", space, space )
 #endif
     {
         simulatorPtr_ = 0;
@@ -224,6 +224,7 @@ public:
      */
     void eraseMatrix()
     {
+        linearOperator_.reset();
         // matrix_.reset();
     }
 
@@ -241,7 +242,8 @@ public:
         // we defer the initialization of the Jacobian matrix until here because the
         // auxiliary modules usually assume the problem, model and grid to be fully
         // initialized...
-        // if (!matrix_)
+        //if (!matrix_)
+        if (!linearOperator_)
             initFirstIteration_();
 
         int succeeded;
@@ -283,8 +285,16 @@ public:
      */
 
 #if HAVE_DUNE_FEM
-    const LinearOperator& matrix() const { return linearOperator_; }
-    LinearOperator& matrix() { return linearOperator_; }
+    const LinearOperator& matrix() const
+    {
+        assert( linearOperator_ );
+        return *linearOperator_;
+    }
+
+    LinearOperator& matrix() {
+        assert( linearOperator_ );
+        return *linearOperator_;
+    }
 #else
     const Matrix& matrix() const
     { return *matrix_; }
@@ -356,10 +366,11 @@ private:
     {
         const auto& model = model_();
 #if HAVE_DUNE_FEM
-        DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace >
-            stencil( linearOperator_.domainSpace(), linearOperator_.rangeSpace() );
+        linearOperator_.reset( new LinearOperator( "FvBaseLinearizer::jacobian", space_, space_ ) );
+        DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace > stencil( space_, space_ );
         stencil.addAuxiliaryStencil( model );
-        linearOperator_.reserve(stencil, /* implicit = */ false );
+        //linearOperator_.reserve(stencil, /* implicit = */ false );
+        linearOperator_->reserve(stencil);
 #else
         size_t numAllDof = model.numTotalDof();
 
@@ -418,7 +429,7 @@ private:
     {
         residual_ = 0.0;
 #if HAVE_DUNE_FEM
-        linearOperator_.clear();
+        linearOperator_->clear();
 #else
         (*matrix_) = 0.0;
 #endif
@@ -518,7 +529,9 @@ private:
         applyConstraintsToLinearization_();
 
         linearizeAuxiliaryEquations_();
-        linearOperator_.communicate();
+#if HAVE_DUNE_FEM
+        linearOperator_->communicate();
+#endif
     }
 
     // linearize an element in the interior of the process' grid partition
@@ -548,7 +561,7 @@ private:
 
         for (unsigned dofIdx = 0; dofIdx < elementCtx->numDof(/*timeIdx=*/0); ++ dofIdx)
         {
-            auto localMatrix = linearOperator_.localMatrix( elem,  stencil.element( dofIdx ) );//, elem );
+            auto localMatrix = linearOperator_->localMatrix( elem,  stencil.element( dofIdx ) );//, elem );
             for (unsigned primaryDofIdx = 0; primaryDofIdx < numPrimaryDof; ++ primaryDofIdx)
             {
                 const auto& localJac = localLinearizer.jacobian(dofIdx, primaryDofIdx);
@@ -590,7 +603,7 @@ private:
     {
         auto& model = model_();
         for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx)
-            model.auxiliaryModule(auxModIdx)->linearize(linearOperator_, residual_);
+            model.auxiliaryModule(auxModIdx)->linearize(*linearOperator_, residual_);
     }
 
     // apply the constraints to the solution. (i.e., the solution of constraint degrees
@@ -648,6 +661,8 @@ private:
     static bool enableConstraints_()
     { return GET_PROP_VALUE(TypeTag, EnableConstraints); }
 
+    const DiscreteFunctionSpace& space_;
+
     Simulator *simulatorPtr_;
     std::vector<ElementContext*> elementCtx_;
 
@@ -658,7 +673,7 @@ private:
     // the jacobian matrix
     // MatrixPointer matrix_;
 
-    LinearOperator linearOperator_;
+    std::unique_ptr< LinearOperator > linearOperator_;
 
     // the right-hand side
     GlobalEqVector residual_;
