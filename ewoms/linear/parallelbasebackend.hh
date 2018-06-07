@@ -281,12 +281,21 @@ public:
         return result;
     }
 
+    /*!
+     * \brief Return number of iterations used during last solve.
+     */
+    size_t iterations () const {
+        return asImp_().iterations_();
+    }
+
 protected:
     Implementation& asImp_()
     { return *static_cast<Implementation *>(this); }
 
     const Implementation& asImp_() const
     { return *static_cast<const Implementation *>(this); }
+
+    size_t iterations_() const { return size_t(-1); }
 
     void prepare_(const Matrix& M)
     {

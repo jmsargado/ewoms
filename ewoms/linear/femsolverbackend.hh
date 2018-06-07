@@ -130,9 +130,9 @@ protected:
     };
 
     template <int d>
-    struct SolverSelector< d, Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > >
+    struct SolverSelector< d, Dune::Fem::ISTLLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
     {
-        typedef Dune::Fem::ISTLBICGSTABOp< DiscreteFunction, LinearOperator >  type;
+        typedef Dune::Fem::ISTLBICGSTABOp< VectorWrapperDiscreteFunction, LinearOperator >  type;
     };
 
     // select solver type depending on linear operator type
@@ -219,6 +219,14 @@ public:
 
         // return the result of the solver
         return true; //result;
+    }
+
+    /*!
+     * \brief Return number of iterations used during last solve.
+     */
+    size_t iterations () const {
+        assert( invOp_);
+        return invOp_->iterations();
     }
 
 protected:

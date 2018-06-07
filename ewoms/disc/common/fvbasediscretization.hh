@@ -146,10 +146,10 @@ private:
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
     typedef typename GET_PROP_TYPE(TypeTag, PrimaryVariables)      PrimaryVariables;
     // discrete function storing solution data
-    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
+    typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace> DiscreteFunction;
 public:
-    typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
-    //typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    //typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
     //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
 };
 #else
@@ -159,9 +159,10 @@ SET_PROP(FvBaseDiscretization, JacobianMatrix)
 private:
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
     enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
-    typedef typename Dune::FieldMatrix<Scalar, numEq, numEq> MatrixBlock;
+    typedef Dune::MatrixBlock< Scalar, numEq, numEq> Block;
+    //typedef typename Dune::FieldMatrix<Scalar, numEq, numEq> MatrixBlock;
 public:
-    typedef typename Dune::BCRSMatrix<MatrixBlock> type;
+    typedef typename Dune::BCRSMatrix<Block> type;
 };
 #endif
 
