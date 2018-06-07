@@ -124,9 +124,9 @@ protected:
     };
 
     template <int d>
-    struct SolverSelector< d, Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > >
+    struct SolverSelector< d, Dune::Fem::PetscLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
     {
-        typedef Dune::Fem::PetscInverseOperator< DiscreteFunction, LinearOperator >  type;
+        typedef Dune::Fem::PetscInverseOperator< VectorWrapperDiscreteFunction, LinearOperator >  type;
     };
 
     template <int d>
@@ -144,6 +144,7 @@ public:
     FemSolverBackend(const Simulator& simulator)
         : simulator_(simulator)
         , invOp_()
+        , rhs_( nullptr )
     {
     }
 
@@ -200,8 +201,7 @@ public:
 
     void prepareRhs(const LinearOperator& linOp, Vector& b)
     {
-        rhs_.reset( new VectorWrapperDiscreteFunction( "FSB::rhs", space(), b ) );
-        // rhs_.communicate();
+        rhs_ = &b;
     }
 
     /*!
@@ -212,10 +212,11 @@ public:
     bool solve(Vector& x)
     {
         // wrap x into discrete function X (no copy)
-        VectorWrapperDiscreteFunction X( "FSB::x", space(), x );
+        VectorWrapperDiscreteFunction X( "FSB::x",   space(), x );
+        VectorWrapperDiscreteFunction B( "FSB::rhs", space(), *rhs_ );
 
         // solve with right hand side rhs and store in x
-        (*invOp_)( *rhs_, X );
+        (*invOp_)( B, X );
 
         // return the result of the solver
         return true; //result;
@@ -239,20 +240,6 @@ protected:
     const DiscreteFunctionSpace& space() const {
         return simulator_.model().space();
     }
-
-    /*
-    void toDF( Vector& x, SolverDiscreteFunction& f ) const
-    {
-        VectorWrapperDiscreteFunction xf( "wrap x", space(), x );
-        f.assign( xf );
-    }
-
-    void toVec( const SolverDiscreteFunction& f, Vector& x ) const
-    {
-        VectorWrapperDiscreteFunction xf( "wrap x", space(), x );
-        xf.assign( f );
-    }
-    */
 
     void rescale_()
     {
@@ -280,14 +267,14 @@ protected:
     void cleanup_()
     {
         invOp_.reset();
-        rhs_.reset();
+        rhs_ = nullptr;
     }
 
     const Simulator& simulator_;
 
     std::unique_ptr< InverseLinearOperator > invOp_;
 
-    std::unique_ptr< VectorWrapperDiscreteFunction > rhs_;
+    Vector* rhs_;
 };
 }} // namespace Linear, Ewoms
 
