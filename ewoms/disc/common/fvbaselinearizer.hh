@@ -511,7 +511,6 @@ private:
 
         ElementContext *elementCtx = elementCtx_[threadId];
         auto& localLinearizer = model_().localLinearizer(threadId);
-        const auto& stencil = elementCtx->stencil( /* timeIdx = */ 0 );
 
         // the actual work of linearization is done by the local linearizer class
         localLinearizer.linearize(*elementCtx, elem);
@@ -521,6 +520,8 @@ private:
             globalMatrixMutex_.lock();
 
 #if USE_DUNE_FEM_SOLVERS
+        const auto& stencil = elementCtx->stencil( /* timeIdx = */ 0 );
+
         const size_t numPrimaryDof = elementCtx->numPrimaryDof(/*timeIdx=*/0);
         for (unsigned primaryDofIdx = 0; primaryDofIdx < numPrimaryDof; ++ primaryDofIdx) {
             unsigned globI = elementCtx->globalSpaceIndex(/*spaceIdx=*/primaryDofIdx, /*timeIdx=*/0);

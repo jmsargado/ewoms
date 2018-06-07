@@ -137,7 +137,9 @@ public:
     // discrete function storing solution data
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> type;
 };
+#endif
 
+#if USE_DUNE_FEM_SOLVERS
 SET_PROP(FvBaseDiscretization, JacobianMatrix)
 {
 private:
