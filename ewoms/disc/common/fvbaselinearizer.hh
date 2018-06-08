@@ -341,7 +341,7 @@ private:
         matrix_.reset( new Matrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
         DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace > stencil( space_, space_ );
         stencil.addAuxiliaryStencil( model );
-        matrix_->reserve(stencil);
+        matrix_->reserve(stencil, false );
 #else
         size_t numAllDof = model.numTotalDof();
 
