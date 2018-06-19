@@ -286,7 +286,7 @@ SET_BOOL_PROP(FvBaseDiscretization, EnableThermodynamicHints, false);
 // approximation accurately. Assuming that the value for the current solution is quite
 // close to the final value, a reduction of 3 orders of magnitude in the defect should be
 // sufficient...
-SET_SCALAR_PROP(FvBaseDiscretization, LinearSolverTolerance, 1e-3);
+SET_SCALAR_PROP(FvBaseDiscretization, LinearSolverTolerance, 1e-2);
 
 //! Set the history size of the time discretization to 2 (for implicit euler)
 SET_INT_PROP(FvBaseDiscretization, TimeDiscHistorySize, 2);

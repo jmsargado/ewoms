@@ -75,7 +75,7 @@ public:
     template <class Model>
     void addAuxiliaryStencil( const Model& model )
     {
-        size_t numAllDof = model.numTotalDof();
+        const size_t numAllDof = model.numTotalDof();
 
         // for the main model, find out the global indices of the neighboring degrees of
         // freedom of each primary degree of freedom
@@ -88,12 +88,11 @@ public:
 
         for( size_t i=0; i<numAllDof; ++i )
         {
-            if( ! neighbors[ i ].empty() )
-            {
-                auto& sten = globalStencil_[ i ];
-                for( const auto& idx : neighbors[ i ] )
-                    sten.insert( idx );
-            }
+            if( neighbors[ i ].empty() ) continue ;
+
+            auto& sten = globalStencil_[ i ];
+            for( const auto& idx : neighbors[ i ] )
+                sten.insert( idx );
         }
     }
 
@@ -265,6 +264,13 @@ public:
             throw Opm::NumericalIssue("A process did not succeed in linearizing the system");
     }
 
+    void finalize()
+    {
+#if USE_DUNE_FEM_SOLVERS
+        matrix_->communicate();
+#endif
+    }
+
     /*!
      * \brief Return constant reference to global Jacobian matrix.
      */
@@ -341,7 +347,7 @@ private:
         matrix_.reset( new Matrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
         DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace > stencil( space_, space_ );
         stencil.addAuxiliaryStencil( model );
-        matrix_->reserve(stencil, false );
+        matrix_->reserve(stencil);
 #else
         size_t numAllDof = model.numTotalDof();
 
@@ -499,9 +505,6 @@ private:
         applyConstraintsToLinearization_();
 
         linearizeAuxiliaryEquations_();
-#if USE_DUNE_FEM_SOLVERS
-        matrix_->communicate();
-#endif
     }
 
     // linearize an element in the interior of the process' grid partition

@@ -171,11 +171,12 @@ public:
         // set ilu preconditioner istl
         Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
         Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
+        Dune::Fem::Parameter::append("fem.solver.errormeasure", "relative" );
 
         // possible solvers: cg, bicg, bicgstab, gmres
         Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
         // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
-        Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
+        Dune::Fem::Parameter::append("petsc.preconditioning.method", "hypre");
 
         //Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
     }
@@ -190,7 +191,7 @@ public:
     void prepareMatrix(const LinearOperator& op)
     {
         Scalar linearSolverTolerance = 0.01;//EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
+        Scalar linearSolverAbsTolerance = 0.01;//this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         // reset linear solver
         invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );

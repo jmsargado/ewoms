@@ -223,7 +223,8 @@ public:
     using BaseType :: operator= ;
     using BaseType :: rows;
     using BaseType :: cols;
-    explicit MatrixBlock( const Scalar scalar = 0 ) : BaseType( scalar ) {}
+    MatrixBlock() : BaseType( Scalar(0) ) {}
+    explicit MatrixBlock( const Scalar scalar ) : BaseType( scalar ) {}
     void invert()
     {
         ISTLUtility::invertMatrix( *this );
