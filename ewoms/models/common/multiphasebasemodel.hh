@@ -48,8 +48,8 @@ template <class TypeTag>
 class MultiPhaseBaseModel;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 //! The generic type tag for problems using the immiscible multi-phase model
 NEW_TYPE_TAG(MultiPhaseBaseModel, INHERITS_FROM(VtkMultiPhase, VtkTemperature));
 
@@ -122,7 +122,10 @@ SET_TYPE_PROP(MultiPhaseBaseModel,
 //! disable gravity by default
 SET_BOOL_PROP(MultiPhaseBaseModel, EnableGravity, false);
 
-} // namespace Properties
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup MultiPhaseBaseModel
@@ -209,7 +212,7 @@ public:
         storage = 0;
 
         ThreadedEntityIterator<GridView, /*codim=*/0> threadedElemIt(this->gridView());
-        OmpMutex addMutex;
+        std::mutex mutex;
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -243,9 +246,9 @@ public:
                                                                   phaseIdx);
                     tmp *= scv.volume()*intQuants.extrusionFactor();
 
-                    OmpMutex addLock(addMutex);
+                    mutex.lock();
                     storage += tmp;
-                    addLock.unlock();
+                    mutex.unlock();
                 }
             }
         }

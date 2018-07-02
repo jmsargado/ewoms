@@ -40,8 +40,8 @@
 #include <ewoms/linear/parallelistlbackend.hh>
 #include <ewoms/linear/femsolverbackend.hh>
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 //! The type tag for models based on the finite volume schemes
 NEW_TYPE_TAG(FvBaseDiscretization,
              INHERITS_FROM(ImplicitModel,
@@ -311,6 +311,6 @@ NEW_PROP_TAG(ExtensiveStorageTerm);
 //! \brief Specify whether to use volumetric residuals or not
 NEW_PROP_TAG(UseVolumetricResidual);
 
-}} // namespace Properties, Ewoms
+END_PROPERTIES
 
 #endif

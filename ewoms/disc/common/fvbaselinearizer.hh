@@ -48,6 +48,7 @@
 #include <type_traits>
 #include <iostream>
 #include <vector>
+#include <thread>
 #include <set>
 
 namespace Ewoms {
@@ -650,7 +651,7 @@ private:
     GlobalEqVector residual_;
 
 
-    OmpMutex globalMatrixMutex_;
+    std::mutex globalMatrixMutex_;
 };
 
 } // namespace Ewoms

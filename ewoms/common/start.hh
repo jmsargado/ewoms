@@ -68,17 +68,19 @@
 #include <mpi.h>
 #endif
 
-namespace Ewoms {
+BEGIN_PROPERTIES
+
 // forward declaration of property tags
-namespace Properties {
 NEW_PROP_TAG(Scalar);
 NEW_PROP_TAG(Simulator);
 NEW_PROP_TAG(ThreadManager);
 NEW_PROP_TAG(PrintProperties);
 NEW_PROP_TAG(PrintParameters);
 NEW_PROP_TAG(ParameterFile);
-} // namespace Properties
-} // namespace Ewoms
+NEW_PROP_TAG(Problem);
+
+END_PROPERTIES
+
 //! \cond SKIP_THIS
 
 namespace Ewoms {
@@ -86,7 +88,7 @@ namespace Ewoms {
  * \brief Announce all runtime parameters to the registry but do not specify them yet.
  */
 template <class TypeTag>
-static inline void registerAllParameters_()
+static inline void registerAllParameters_(bool finalizeRegistration = true)
 {
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
     typedef typename GET_PROP_TYPE(TypeTag, ThreadManager) ThreadManager;
@@ -104,7 +106,8 @@ static inline void registerAllParameters_()
     Simulator::registerParameters();
     ThreadManager::registerParameters();
 
-    EWOMS_END_PARAM_REGISTRATION(TypeTag);
+    if (finalizeRegistration)
+        EWOMS_END_PARAM_REGISTRATION(TypeTag);
 }
 
 /*!
@@ -118,6 +121,7 @@ template <class TypeTag>
 static inline int setupParameters_(int argc, const char **argv, bool registerParams = true)
 {
     typedef typename GET_PROP(TypeTag, ParameterMetaData) ParameterMetaData;
+    typedef typename GET_PROP_TYPE(TypeTag, Problem) Problem;
 
     // first, get the MPI rank of the current process
     int myRank = 0;
@@ -136,10 +140,17 @@ static inline int setupParameters_(int argc, const char **argv, bool registerPar
     ////////////////////////////////////////////////////////////
 
     // fill the parameter tree with the options from the command line
-    std::string s = Parameters::parseCommandLineOptions<TypeTag>(argc, argv, /*handleHelp=*/myRank == 0);
-    if (!s.empty()) {
+    const auto& positionalParamCallback = Problem::handlePositionalParameter;
+    std::string helpPreamble = "";
+    if (myRank == 0)
+        helpPreamble = Problem::helpPreamble(argc, argv);
+    std::string s =
+        Parameters::parseCommandLineOptions<TypeTag>(argc,
+                                                     argv,
+                                                     helpPreamble,
+                                                     positionalParamCallback);
+    if (!s.empty())
         return /*status=*/1;
-    }
 
     std::string paramFileName = EWOMS_GET_PARAM_(TypeTag, std::string, ParameterFile);
     if (paramFileName != "") {
