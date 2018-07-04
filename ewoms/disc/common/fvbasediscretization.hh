@@ -74,7 +74,11 @@
 #include <dune/fem/space/common/restrictprolongtuple.hh>
 #include <dune/fem/function/blockvectorfunction.hh>
 #include <dune/fem/misc/capabilities.hh>
+
+#if HAVE_PETSC
 #include <dune/fem/operator/linear/petscoperator.hh>
+#endif
+
 #include <dune/fem/operator/linear/istloperator.hh>
 #include <dune/fem/operator/linear/spoperator.hh>
 #endif
@@ -152,8 +156,13 @@ private:
     // discrete function storing solution data
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace> DiscreteFunction;
 public:
-    //typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
+
+#if HAVE_PETSC
+    typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
+#else
     typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
+#endif
+
     //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
 };
 #else
