@@ -471,7 +471,9 @@ private:
 
         applyConstraintsToSolution_();
 
-        //*matrix_ = 0.0;
+#if ! USE_DUNE_FEM_SOLVERS
+        *matrix_ = 0.0;
+#endif
 
         // relinearize the elements...
         ThreadedEntityIterator<GridView, /*codim=*/0> threadedElemIt(gridView_());

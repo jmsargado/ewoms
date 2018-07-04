@@ -46,6 +46,7 @@
 
 
 #include <ewoms/linear/parallelbicgstabbackend.hh>
+#include <ewoms/linear/istlsolverwrappers.hh>
 
 #include <sstream>
 #include <memory>
@@ -65,6 +66,11 @@ NEW_TYPE_TAG(FemSolverBackend);
 SET_TYPE_PROP(FemSolverBackend,
               LinearSolverBackend,
               Ewoms::Linear::FemSolverBackend<TypeTag>);
+
+NEW_PROP_TAG(LinearSolverTolerance);
+NEW_PROP_TAG(LinearSolverMaxIterations);
+NEW_PROP_TAG(LinearSolverVerbosity);
+
 
 }} // namespace Properties, Ewoms
 
@@ -158,16 +164,13 @@ public:
      */
     static void registerParameters()
     {
-        /*
-        EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverTolerance,
-                             "The maximum allowed error between of the linear solver");
-        EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverMaxIterations,
-                             "The maximum number of iterations of the linear solver");
-        EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverVerbosity,
-                             "The verbosity level of the linear solver");
+        //EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverTolerance,
+        //                     "The maximum allowed error between of the linear solver");
+        //EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverMaxIterations,
+        //                     "The maximum number of iterations of the linear solver");
+        //EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverVerbosity,
+        //                     "The verbosity level of the linear solver");
 
-
-                             */
         // PreconditionerWrapper::registerParameters();
 
         // set ilu preconditioner istl
@@ -178,7 +181,7 @@ public:
         // possible solvers: cg, bicg, bicgstab, gmres
         Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
         // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
-        Dune::Fem::Parameter::append("petsc.preconditioning.method", "hypre");
+        Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
 
         //Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
     }
@@ -193,7 +196,7 @@ public:
     void prepareMatrix(const LinearOperator& op)
     {
         Scalar linearSolverTolerance = 0.01;//EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-        Scalar linearSolverAbsTolerance = 0.01;//this->simulator_.model().newtonMethod().tolerance() / 10.0;
+        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         // reset linear solver
         invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );

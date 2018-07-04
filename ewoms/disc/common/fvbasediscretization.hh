@@ -159,6 +159,7 @@ public:
 
 #if HAVE_PETSC
     typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    //typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
 #else
     typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
 #endif
