@@ -54,7 +54,10 @@ namespace Ewoms {
 template <class TypeTag>
 class ReservoirProblem;
 
-namespace Properties {
+} // namespace Ewoms
+
+BEGIN_PROPERTIES
+
 
 NEW_TYPE_TAG(ReservoirBaseProblem);
 
@@ -127,7 +130,7 @@ private:
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
 
 public:
-    typedef Opm::FluidSystems::BlackOil<Scalar> type;
+    typedef Opm::BlackOilFluidSystem<Scalar> type;
 };
 
 // The default DGF file to load
@@ -135,7 +138,10 @@ SET_STRING_PROP(ReservoirBaseProblem, GridFile, "data/reservoir.dgf");
 
 // increase the tolerance for this problem to get larger time steps
 SET_SCALAR_PROP(ReservoirBaseProblem, NewtonRawTolerance, 1e-6);
-} // namespace Properties
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup TestProblems
@@ -545,20 +551,22 @@ public:
      * saturated with a lower pressure than the remaining reservoir.
      */
     template <class Context>
-    void constraints(Constraints& constraints, const Context& context,
-                     unsigned spaceIdx, unsigned timeIdx) const
+    void constraints(Constraints& constraintValues,
+                     const Context& context,
+                     unsigned spaceIdx,
+                     unsigned timeIdx) const
     {
         if (this->simulator().episodeIndex() == 1)
             return; // no constraints during the "settle down" episode
 
         const auto& pos = context.pos(spaceIdx, timeIdx);
         if (isInjector_(pos)) {
-            constraints.setActive(true);
-            constraints.assignNaive(injectorFluidState_);
+            constraintValues.setActive(true);
+            constraintValues.assignNaive(injectorFluidState_);
         }
         else if (isProducer_(pos)) {
-            constraints.setActive(true);
-            constraints.assignNaive(producerFluidState_);
+            constraintValues.setActive(true);
+            constraintValues.assignNaive(producerFluidState_);
         }
     }
 

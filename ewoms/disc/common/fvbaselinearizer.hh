@@ -48,6 +48,7 @@
 #include <type_traits>
 #include <iostream>
 #include <vector>
+#include <thread>
 #include <set>
 
 namespace Ewoms {
@@ -214,7 +215,19 @@ public:
     }
 
     /*!
-     * \brief Linearize the global non-linear system of equations
+     * \brief Linearize the full system of non-linear equations.
+     *
+     * This means the spatial domain plus all auxiliary equations.
+     */
+    void linearize()
+    {
+        linearizeDomain();
+        linearizeAuxiliaryEquations();
+    }
+
+    /*!
+     * \brief Linearize the part of the non-linear system of equations that is associated
+     *        with the spatial domain.
      *
      * That means that the global Jacobian of the residual is assembled and the residual
      * is evaluated for the current solution.
@@ -222,7 +235,7 @@ public:
      * The current state of affairs (esp. the previous and the current solutions) is
      * represented by the model object.
      */
-    void linearize()
+    void linearizeDomain()
     {
         // we defer the initialization of the Jacobian matrix until here because the
         // auxiliary modules usually assume the problem, model and grid to be fully
@@ -269,6 +282,44 @@ public:
 #if USE_DUNE_FEM_SOLVERS
         matrix_->communicate();
 #endif
+    }
+
+    /*!
+     * \brief Linearize the part of the non-linear system of equations that is associated
+     *        with the spatial domain.
+     */
+    void linearizeAuxiliaryEquations()
+    {
+        auto& model = model_();
+        const auto& comm = simulator_().gridView().comm();
+        for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx) {
+            bool succeeded = true;
+            try {
+                model.auxiliaryModule(auxModIdx)->linearize(*matrix_, residual_);
+            }
+            catch (const std::exception& e) {
+                succeeded = false;
+
+                std::cout << "rank " << simulator_().gridView().comm().rank()
+                          << " caught an exception while linearizing:" << e.what()
+                          << "\n"  << std::flush;
+            }
+#if ! DUNE_VERSION_NEWER(DUNE_COMMON, 2,5)
+            catch (const Dune::Exception& e)
+            {
+                succeeded = false;
+
+                std::cout << "rank " << simulator_().gridView().comm().rank()
+                          << " caught an exception while linearizing:" << e.what()
+                          << "\n"  << std::flush;
+            }
+#endif
+
+            succeeded = comm.min(succeeded);
+
+            if (!succeeded)
+                throw Opm::NumericalIssue("linearization of an auxilary equation failed");
+        }
     }
 
     /*!
@@ -503,8 +554,6 @@ private:
         }
 
         applyConstraintsToLinearization_();
-
-        linearizeAuxiliaryEquations_();
     }
 
     // linearize an element in the interior of the process' grid partition
@@ -570,13 +619,6 @@ private:
 
         if (GET_PROP_VALUE(TypeTag, UseLinearizationLock))
             globalMatrixMutex_.unlock();
-    }
-
-    void linearizeAuxiliaryEquations_()
-    {
-        auto& model = model_();
-        for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx)
-            model.auxiliaryModule(auxModIdx)->linearize(*matrix_, residual_);
     }
 
     // apply the constraints to the solution. (i.e., the solution of constraint degrees
@@ -650,7 +692,7 @@ private:
     GlobalEqVector residual_;
 
 
-    OmpMutex globalMatrixMutex_;
+    std::mutex globalMatrixMutex_;
 };
 
 } // namespace Ewoms

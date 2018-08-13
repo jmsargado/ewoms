@@ -64,8 +64,8 @@ template <class TypeTag>
 class EclVanguard;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 //! The type tag for the black-oil problems
 NEW_TYPE_TAG(BlackOilModel, INHERITS_FROM(MultiPhaseBaseModel,
                                           VtkBlackOil,
@@ -121,7 +121,7 @@ private:
     typedef typename GET_PROP_TYPE(TypeTag, Evaluation) Evaluation;
 
 public:
-    typedef Opm::FluidSystems::BlackOil<Scalar> type;
+    typedef Opm::BlackOilFluidSystem<Scalar> type;
 };
 
 // by default, all ECL extension modules are disabled
@@ -155,7 +155,10 @@ PROP_STATIC_CONST_MEMBER_DEFINITION_PREFIX_(BlackOilModel, BlackOilEnergyScaling
 // by default, ebos formulates the conservation equations in terms of mass not surface
 // volumes
 SET_BOOL_PROP(BlackOilModel, BlackoilConserveSurfaceVolume, false);
-} // namespace Properties
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup BlackOilModel
@@ -328,12 +331,12 @@ public:
             return 1.0;
 
         // saturations are always in the range [0, 1]!
-        if (Indices::waterSaturationIdx == pvIdx)
+        if (int(Indices::waterSaturationIdx) == int(pvIdx))
             return 1.0;
 
         // oil pressures usually are in the range of 100 to 500 bars for typical oil
         // reservoirs (which is the only relevant application for the black-oil model).
-        else if (Indices::pressureSwitchIdx == pvIdx)
+        else if (int(Indices::pressureSwitchIdx) == int(pvIdx))
             return 1.0/300e5;
 
         // deal with primary variables stemming from the solvent module
@@ -349,7 +352,7 @@ public:
             return EnergyModule::primaryVarWeight(pvIdx);
 
         // if the primary variable is either the gas saturation, Rs or Rv
-        assert(Indices::compositionSwitchIdx == pvIdx);
+        assert(int(Indices::compositionSwitchIdx) == int(pvIdx));
 
         auto pvMeaning = this->solution(0)[globalDofIdx].primaryVarsMeaning();
         if (pvMeaning == PrimaryVariables::Sw_po_Sg)
@@ -366,14 +369,27 @@ public:
     /*!
      * \copydoc FvBaseDiscretization::eqWeight
      */
-    Scalar eqWeight(unsigned globalDofIdx, unsigned eqIdx OPM_UNUSED) const
+    Scalar eqWeight(unsigned globalDofIdx, unsigned eqIdx) const
     {
         // do not care about the auxiliary equations as they are supposed to scale
         // themselves
         if (globalDofIdx >= this->numGridDof())
             return 1.0;
 
-        else if (SolventModule::eqApplies(eqIdx))
+        if (GET_PROP_VALUE(TypeTag, BlackoilConserveSurfaceVolume)) {
+            switch (eqIdx) {
+            case Indices::conti0EqIdx + FluidSystem::waterCompIdx:
+                return 1.0/1000.0;
+
+            case Indices::conti0EqIdx + FluidSystem::gasCompIdx:
+                return 1.0;
+
+            case Indices::conti0EqIdx + FluidSystem::oilCompIdx:
+                return 1.0/650.0;
+            }
+        }
+
+        if (SolventModule::eqApplies(eqIdx))
             return SolventModule::eqWeight(eqIdx);
 
         else if (PolymerModule::eqApplies(eqIdx))

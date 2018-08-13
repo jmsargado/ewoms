@@ -62,8 +62,8 @@ template <class TypeTag>
 class NcpModel;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 /*!
  * \brief Define the type tag for the compositional NCP model.
  */
@@ -117,7 +117,9 @@ SET_SCALAR_PROP(NcpModel, NcpSaturationsBaseWeight, 1.0);
 //! The unmodified weight for the fugacity primary variables
 SET_SCALAR_PROP(NcpModel, NcpFugacitiesBaseWeight, 1.0e-6);
 
-} // namespace Properties
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup NcpModel
@@ -256,6 +258,12 @@ public:
 
         minActivityCoeff_.resize(this->numGridDof());
         std::fill(minActivityCoeff_.begin(), minActivityCoeff_.end(), 1.0);
+    }
+
+    void adaptGrid()
+    {
+        ParentType::adaptGrid();
+        minActivityCoeff_.resize(this->numGridDof());
     }
 
     /*!

@@ -66,8 +66,10 @@ namespace Co2Injection {
 #include <opm/material/components/co2tables.inc>
 }
 //! \endcond
+}
 
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(Co2InjectionBaseProblem);
 
 // declare the CO2 injection problem specific property tags
@@ -97,8 +99,8 @@ private:
     typedef Ewoms::Co2Injection::CO2Tables CO2Tables;
 
 public:
-    typedef Opm::FluidSystems::BrineCO2<Scalar, CO2Tables> type;
-    //typedef Opm::FluidSystems::H2ON2<Scalar, /*useComplexRelations=*/false> type;
+    typedef Opm::BrineCO2FluidSystem<Scalar, CO2Tables> type;
+    //typedef Opm::H2ON2FluidSystem<Scalar, /*useComplexRelations=*/false> type;
 };
 
 // Set the material Law
@@ -168,8 +170,8 @@ SET_SCALAR_PROP(Co2InjectionBaseProblem, InitialTimeStepSize, 250);
 
 // The default DGF file to load
 SET_STRING_PROP(Co2InjectionBaseProblem, GridFile, "data/co2injection.dgf");
-} // namespace Properties
-} // namespace Ewoms
+
+END_PROPERTIES
 
 namespace Ewoms {
 /*!

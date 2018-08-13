@@ -36,9 +36,10 @@
 #include <opm/parser/eclipse/EclipseState/EclipseState.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Schedule.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Events.hpp>
-#include <opm/parser/eclipse/EclipseState/Schedule/CompletionSet.hpp>
+#include <opm/parser/eclipse/EclipseState/Schedule/WellConnections.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/Well.hpp>
 #include <opm/parser/eclipse/EclipseState/Schedule/TimeMap.hpp>
+#include <opm/output/data/Wells.hpp>
 #include <opm/material/common/Exceptions.hpp>
 
 #include <ewoms/common/propertysystem.hh>
@@ -50,10 +51,13 @@
 #include <string>
 #include <vector>
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_PROP_TAG(Grid);
-}
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup EclBlackOilSimulator
@@ -75,12 +79,15 @@ class EclWellManager
 
     enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
     enum { numPhases = FluidSystem::numPhases };
+    enum { waterPhaseIdx = FluidSystem::waterPhaseIdx };
+    enum { oilPhaseIdx = FluidSystem::oilPhaseIdx };
+    enum { gasPhaseIdx = FluidSystem::gasPhaseIdx };
 
     typedef typename GridView::template Codim<0>::Entity Element;
 
     typedef Ewoms::EclPeacemanWell<TypeTag> Well;
 
-    typedef std::map<int, std::pair<const Opm::Completion*, std::shared_ptr<Well> > > WellCompletionsMap;
+    typedef std::map<int, std::pair<const Opm::Connection*, std::shared_ptr<Well> > > WellConnectionsMap;
 
     typedef Dune::FieldVector<Evaluation, numEq> EvalEqVector;
 
@@ -97,7 +104,6 @@ public:
     void init(const Opm::EclipseState& eclState,
               const Opm::Schedule& deckSchedule)
     {
-
         // create the wells which intersect with the current process' grid
         for (size_t deckWellIdx = 0; deckWellIdx < deckSchedule.numWells(); ++deckWellIdx)
         {
@@ -128,8 +134,8 @@ public:
     {
         unsigned episodeIdx = simulator_.episodeIndex();
 
-        WellCompletionsMap wellCompMap;
-        computeWellCompletionsMap_(episodeIdx, wellCompMap);
+        WellConnectionsMap wellCompMap;
+        computeWellConnectionsMap_(episodeIdx, wellCompMap);
 
         if (wasRestarted || wellTopologyChanged_(eclState, deckSchedule, episodeIdx))
             updateWellTopology_(episodeIdx, wellCompMap, gridDofIsPenetrated_);
@@ -534,6 +540,26 @@ public:
         }
     }
 
+    Opm::data::Wells wellData() const
+    {
+        Opm::data::Wells wellDat;
+
+        using rt = Opm::data::Rates::opt;
+        for (unsigned wellIdx = 0; wellIdx < numWells(); ++wellIdx) {
+            const auto& ebosWell = well(wellIdx);
+            auto& wellOut = wellDat[ebosWell->name()];
+
+            wellOut.bhp = ebosWell->bottomHolePressure();
+            wellOut.thp = ebosWell->tubingHeadPressure();
+            wellOut.temperature = 0;
+            wellOut.rates.set( rt::wat, ebosWell->surfaceRate(waterPhaseIdx) );
+            wellOut.rates.set( rt::oil, ebosWell->surfaceRate(oilPhaseIdx) );
+            wellOut.rates.set( rt::gas, ebosWell->surfaceRate(gasPhaseIdx) );
+        }
+
+        return wellDat;
+    }
+
     /*!
      * \brief This method writes the complete state of all wells
      *        to the hard disk.
@@ -604,7 +630,7 @@ protected:
     }
 
     void updateWellTopology_(unsigned reportStepIdx OPM_UNUSED,
-                             const WellCompletionsMap& wellCompletions,
+                             const WellConnectionsMap& wellConnections,
                              std::vector<bool>& gridDofIsPenetrated) const
     {
         auto& model = simulator_.model();
@@ -640,14 +666,14 @@ protected:
                 unsigned globalDofIdx = elemCtx.globalSpaceIndex(dofIdx, /*timeIdx=*/0);
                 unsigned cartesianDofIdx = vanguard.cartesianIndex(globalDofIdx);
 
-                if (wellCompletions.count(cartesianDofIdx) == 0)
+                if (wellConnections.count(cartesianDofIdx) == 0)
                     // the current DOF is not contained in any well, so we must skip
                     // it...
                     continue;
 
                 gridDofIsPenetrated[globalDofIdx] = true;
 
-                auto eclWell = wellCompletions.at(cartesianDofIdx).second;
+                auto eclWell = wellConnections.at(cartesianDofIdx).second;
                 eclWell->addDof(elemCtx, dofIdx);
 
                 wells.insert(eclWell);
@@ -659,11 +685,11 @@ protected:
         wellIt = wells_.begin();
         for (; wellIt != wellEndIt; ++wellIt) {
             (*wellIt)->endSpec();
-            model.addAuxiliaryModule(*wellIt);
+            model.addAuxiliaryModule(wellIt->get());
         }
     }
 
-    void computeWellCompletionsMap_(unsigned reportStepIdx OPM_UNUSED, WellCompletionsMap& cartesianIdxToCompletionMap)
+    void computeWellConnectionsMap_(unsigned reportStepIdx OPM_UNUSED, WellConnectionsMap& cartesianIdxToConnectionMap)
     {
         const auto& deckSchedule = simulator_.vanguard().schedule();
 
@@ -676,7 +702,7 @@ protected:
 #endif
 
         // compute the mapping from logically Cartesian indices to the well the
-        // respective completion.
+        // respective connection.
         const std::vector<const Opm::Well*>& deckWells = deckSchedule.getWells(reportStepIdx);
         for (size_t deckWellIdx = 0; deckWellIdx < deckWells.size(); ++deckWellIdx) {
             const Opm::Well* deckWell = deckWells[deckWellIdx];
@@ -687,7 +713,7 @@ protected:
 #ifndef NDEBUG
                 if( simulator_.vanguard().grid().comm().size() == 1 )
                 {
-                    std::cout << "Well '" << wellName << "' suddenly appears in the completions "
+                    std::cout << "Well '" << wellName << "' suddenly appears in the connection "
                               << "for the report step, but has not been previously specified. "
                               << "Ignoring.\n";
                 }
@@ -696,26 +722,26 @@ protected:
             }
 
             std::array<int, 3> cartesianCoordinate;
-            // set the well parameters defined by the current set of completions
-            const auto& completionSet = deckWell->getCompletions(reportStepIdx);
-            for (size_t complIdx = 0; complIdx < completionSet.size(); complIdx ++) {
-                const auto& completion = completionSet.get(complIdx);
-                cartesianCoordinate[ 0 ] = completion.getI();
-                cartesianCoordinate[ 1 ] = completion.getJ();
-                cartesianCoordinate[ 2 ] = completion.getK();
+            // set the well parameters defined by the current set of connections
+            const auto& connectionSet = deckWell->getConnections(reportStepIdx);
+            for (size_t connIdx = 0; connIdx < connectionSet.size(); connIdx ++) {
+                const auto& connection = connectionSet.get(connIdx);
+                cartesianCoordinate[ 0 ] = connection.getI();
+                cartesianCoordinate[ 1 ] = connection.getJ();
+                cartesianCoordinate[ 2 ] = connection.getK();
                 unsigned cartIdx = simulator_.vanguard().cartesianIndex( cartesianCoordinate );
 
                 // in this code we only support each cell to be part of at most a single
                 // well. TODO (?) change this?
-                assert(cartesianIdxToCompletionMap.count(cartIdx) == 0);
+                assert(cartesianIdxToConnectionMap.count(cartIdx) == 0);
 
                 auto eclWell = wells_[wellIndex(wellName)];
-                cartesianIdxToCompletionMap[cartIdx] = std::make_pair(&completion, eclWell);
+                cartesianIdxToConnectionMap[cartIdx] = std::make_pair(&connection, eclWell);
             }
         }
     }
 
-    void updateWellParameters_(unsigned reportStepIdx, const WellCompletionsMap& wellCompletions)
+    void updateWellParameters_(unsigned reportStepIdx, const WellConnectionsMap& wellConnections)
     {
         const auto& deckSchedule = simulator_.vanguard().schedule();
         const std::vector<const Opm::Well*>& deckWells = deckSchedule.getWells(reportStepIdx);
@@ -732,7 +758,7 @@ protected:
             }
         }
 
-        // associate the well completions with grid cells and register them in the
+        // associate the well connections with grid cells and register them in the
         // Peaceman well object
         const auto& vanguard = simulator_.vanguard();
         const GridView gridView = vanguard.gridView();
@@ -753,14 +779,14 @@ protected:
                 unsigned globalDofIdx = elemCtx.globalSpaceIndex(dofIdx, /*timeIdx=*/0);
                 unsigned cartesianDofIdx = vanguard.cartesianIndex(globalDofIdx);
 
-                if (wellCompletions.count(cartesianDofIdx) == 0)
+                if (wellConnections.count(cartesianDofIdx) == 0)
                     // the current DOF is not contained in any well, so we must skip
                     // it...
                     continue;
 
-                const auto& compInfo = wellCompletions.at(cartesianDofIdx);
-                const Opm::Completion* completion = compInfo.first;
-                std::shared_ptr<Well> eclWell = compInfo.second;
+                const auto& connInfo = wellConnections.at(cartesianDofIdx);
+                const Opm::Connection* connection = connInfo.first;
+                std::shared_ptr<Well> eclWell = connInfo.second;
                 eclWell->addDof(elemCtx, dofIdx);
 
                 // the catch is a hack for a ideosyncrasy of opm-parser with regard to
@@ -768,7 +794,7 @@ protected:
                 // completion, there seems to be no other way to detect this except for
                 // catching the exception
                 try {
-                    eclWell->setRadius(elemCtx, dofIdx, 0.5*completion->getDiameter());
+                    eclWell->setRadius(elemCtx, dofIdx, 0.5*connection->getDiameter());
                 }
                 catch (const std::logic_error&)
                 {}
@@ -777,14 +803,14 @@ protected:
                 // permeability by the one specified in the deck-> Note: this
                 // is not implemented by opm-parser yet...
                 /*
-                  Scalar Kh = completion->getEffectivePermeability();
+                  Scalar Kh = connection->getEffectivePermeability();
                   if (std::isfinite(Kh) && Kh > 0.0)
                       eclWell->setEffectivePermeability(elemCtx, dofIdx, Kh);
                 */
 
                 // overwrite the automatically computed connection
                 // transmissibilty factor by the one specified in the deck->
-                const auto& ctf = completion->getConnectionTransmissibilityFactorAsValueObject();
+                const auto& ctf = connection->getConnectionTransmissibilityFactorAsValueObject();
                 if (ctf.hasValue() && ctf.getValue() > 0.0)
                     eclWell->setConnectionTransmissibilityFactor(elemCtx, dofIdx, ctf.getValue());
             }

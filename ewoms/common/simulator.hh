@@ -45,8 +45,8 @@
 #include <string>
 #include <memory>
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_PROP_TAG(Scalar);
 NEW_PROP_TAG(Vanguard);
 NEW_PROP_TAG(GridView);
@@ -56,7 +56,10 @@ NEW_PROP_TAG(EndTime);
 NEW_PROP_TAG(RestartTime);
 NEW_PROP_TAG(InitialTimeStepSize);
 NEW_PROP_TAG(PredeterminedTimeStepsFile);
-}
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup Common
@@ -280,6 +283,8 @@ public:
      *        run the simulation
      */
     const Ewoms::Timer& executionTimer() const
+    { return executionTimer_; }
+    Ewoms::Timer& executionTimer()
     { return executionTimer_; }
 
     /*!
@@ -570,7 +575,7 @@ public:
 
             // write initial condition
             if (problem_->shouldWriteOutput())
-                problem_->writeOutput();
+                problem_->writeOutput(/*isSubstep=*/false);
 
             timeStepSize_ = oldTimeStepSize;
             timeStepIdx_ = oldTimeStepIdx;
@@ -644,7 +649,7 @@ public:
             // write the result to disk
             writeTimer_.start();
             if (problem_->shouldWriteOutput())
-                problem_->writeOutput();
+                problem_->writeOutput(/*isSubstep=*/!episodeWillBeOver());
             writeTimer_.stop();
 
             // do the next time integration

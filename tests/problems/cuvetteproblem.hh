@@ -56,8 +56,8 @@ template <class TypeTag>
 class CuvetteProblem;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 
 // create a new type tag for the cuvette steam injection problem
 NEW_TYPE_TAG(CuvetteBaseProblem);
@@ -71,7 +71,7 @@ SET_TYPE_PROP(CuvetteBaseProblem, Problem, Ewoms::CuvetteProblem<TypeTag>);
 // Set the fluid system
 SET_TYPE_PROP(
     CuvetteBaseProblem, FluidSystem,
-    Opm::FluidSystems::H2OAirMesitylene<typename GET_PROP_TYPE(TypeTag, Scalar)>);
+    Opm::H2OAirMesityleneFluidSystem<typename GET_PROP_TYPE(TypeTag, Scalar)>);
 
 // Enable gravity
 SET_BOOL_PROP(CuvetteBaseProblem, EnableGravity, true);
@@ -120,8 +120,8 @@ SET_SCALAR_PROP(CuvetteBaseProblem, InitialTimeStepSize, 1);
 
 // The default DGF file to load
 SET_STRING_PROP(CuvetteBaseProblem, GridFile, "./data/cuvette_11x4.dgf");
-} // namespace Properties
-} // namespace Ewoms
+
+END_PROPERTIES
 
 namespace Ewoms {
 /*!

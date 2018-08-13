@@ -52,8 +52,8 @@ template <class TypeTag>
 class InfiltrationProblem;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(InfiltrationBaseProblem);
 
 // Set the grid type
@@ -66,7 +66,7 @@ SET_TYPE_PROP(InfiltrationBaseProblem, Problem,
 // Set the fluid system
 SET_TYPE_PROP(
     InfiltrationBaseProblem, FluidSystem,
-    Opm::FluidSystems::H2OAirMesitylene<typename GET_PROP_TYPE(TypeTag, Scalar)>);
+    Opm::H2OAirMesityleneFluidSystem<typename GET_PROP_TYPE(TypeTag, Scalar)>);
 
 // Enable gravity?
 SET_BOOL_PROP(InfiltrationBaseProblem, EnableGravity, true);
@@ -103,8 +103,8 @@ SET_SCALAR_PROP(InfiltrationBaseProblem, InitialTimeStepSize, 60);
 // The default DGF file to load
 SET_STRING_PROP(InfiltrationBaseProblem, GridFile,
                 "./data/infiltration_50x3.dgf");
-} // namespace Properties
-} // namespace Ewoms
+
+END_PROPERTIES
 
 namespace Ewoms {
 /*!

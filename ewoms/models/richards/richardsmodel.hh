@@ -56,8 +56,8 @@ template <class TypeTag>
 class RichardsModel;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 //! The type tag for problems discretized using the Richards model
 NEW_TYPE_TAG(Richards, INHERITS_FROM(MultiPhaseBaseModel));
 
@@ -163,11 +163,11 @@ private:
     typedef typename GET_PROP_TYPE(TypeTag, NonWettingFluid) NonWettingFluid;
 
 public:
-    typedef Opm::FluidSystems::TwoPhaseImmiscible<Scalar, WettingFluid, NonWettingFluid> type;
+    typedef Opm::TwoPhaseImmiscibleFluidSystem<Scalar, WettingFluid, NonWettingFluid> type;
 };
 
-} // namespace Properties
-} // namespace Ewoms
+
+END_PROPERTIES
 
 namespace Ewoms {
 

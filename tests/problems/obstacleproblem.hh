@@ -57,8 +57,8 @@ template <class TypeTag>
 class ObstacleProblem;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(ObstacleBaseProblem);
 
 // Set the grid type
@@ -69,7 +69,7 @@ SET_TYPE_PROP(ObstacleBaseProblem, Problem, Ewoms::ObstacleProblem<TypeTag>);
 
 // Set fluid configuration
 SET_TYPE_PROP(ObstacleBaseProblem, FluidSystem,
-              Opm::FluidSystems::H2ON2<typename GET_PROP_TYPE(TypeTag, Scalar)>);
+              Opm::H2ON2FluidSystem<typename GET_PROP_TYPE(TypeTag, Scalar)>);
 
 // Set the material Law
 SET_PROP(ObstacleBaseProblem, MaterialLaw)
@@ -116,8 +116,8 @@ SET_SCALAR_PROP(ObstacleBaseProblem, InitialTimeStepSize, 250);
 
 // The default DGF file to load
 SET_STRING_PROP(ObstacleBaseProblem, GridFile, "./data/obstacle_24x16.dgf");
-} // namespace Properties
-} // namespace Ewoms
+
+END_PROPERTIES
 
 namespace Ewoms {
 /*!

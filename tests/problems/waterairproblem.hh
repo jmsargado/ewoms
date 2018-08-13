@@ -58,8 +58,8 @@ template <class TypeTag>
 class WaterAirProblem;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(WaterAirBaseProblem);
 
 // Set the grid type
@@ -107,7 +107,7 @@ SET_TYPE_PROP(WaterAirBaseProblem, SolidEnergyLaw,
 // Set the fluid system. in this case, we use the one which describes
 // air and water
 SET_TYPE_PROP(WaterAirBaseProblem, FluidSystem,
-              Opm::FluidSystems::H2OAir<typename GET_PROP_TYPE(TypeTag, Scalar)>);
+              Opm::H2OAirFluidSystem<typename GET_PROP_TYPE(TypeTag, Scalar)>);
 
 // Enable gravity
 SET_BOOL_PROP(WaterAirBaseProblem, EnableGravity, true);
@@ -139,8 +139,8 @@ SET_TYPE_PROP(WaterAirBaseProblem, PreconditionerWrapper,
               Ewoms::Linear::PreconditionerWrapperILUn<TypeTag>);
 #endif
 SET_INT_PROP(WaterAirBaseProblem, PreconditionerOrder, 2);
-} // namespace Properties
-} // namespace Ewoms
+
+END_PROPERTIES
 
 namespace Ewoms {
 /*!

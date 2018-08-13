@@ -34,15 +34,20 @@
 namespace Ewoms {
 template <class TypeTag>
 class EclPolyhedralGridVanguard;
+}
 
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(EclPolyhedralGridVanguard, INHERITS_FROM(EclBaseVanguard));
 
 // declare the properties
 SET_TYPE_PROP(EclPolyhedralGridVanguard, Vanguard, Ewoms::EclPolyhedralGridVanguard<TypeTag>);
 SET_TYPE_PROP(EclPolyhedralGridVanguard, Grid, Dune::PolyhedralGrid<3, 3>);
 SET_TYPE_PROP(EclPolyhedralGridVanguard, EquilGrid, typename GET_PROP_TYPE(TypeTag, Grid));
-} // namespace Properties
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup EclBlackOilSimulator
@@ -151,7 +156,7 @@ protected:
         cartesianIndexMapper_ = new CartesianIndexMapper(*grid_);
     }
 
-    void filterCompletions_()
+    void filterConnections_()
     {
         // not handling the removal of completions for this type of grid yet.
     }

@@ -57,8 +57,8 @@ template <class TypeTag>
 class Tutorial1Problem;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 // Create a new type tag for the problem
 NEW_TYPE_TAG(Tutorial1Problem, INHERITS_FROM(ImmiscibleTwoPhaseModel)); /*@\label{tutorial1:create-type-tag}@*/
 
@@ -126,8 +126,8 @@ SET_SCALAR_PROP(Tutorial1Problem, DomainSizeZ, 0.0);
 SET_INT_PROP(Tutorial1Problem, CellsX, 100);
 SET_INT_PROP(Tutorial1Problem, CellsY, 1);
 SET_INT_PROP(Tutorial1Problem, CellsZ, 1); /*@\label{tutorial1:default-params-end}@*/
-} // namespace Properties
-} // namespace Ewoms
+
+END_PROPERTIES
 
 namespace Ewoms {
 //! Tutorial problem using the "immiscible" model.
@@ -269,11 +269,11 @@ public:
     //! position of the domain [kg/(m^3 * s)]. Positive values mean that
     //! mass is created.
     template <class Context>
-    void source(RateVector& source, const Context& /*context*/,
+    void source(RateVector& sourceRate, const Context& /*context*/,
                 unsigned /*spaceIdx*/, unsigned /*timeIdx*/) const
     {
-        source[contiWettingEqIdx] = 0.0;
-        source[contiNonWettingEqIdx] = 0.0;
+        sourceRate[contiWettingEqIdx] = 0.0;
+        sourceRate[contiNonWettingEqIdx] = 0.0;
     }
 
     //! Evaluates the initial value at a given position in the domain.

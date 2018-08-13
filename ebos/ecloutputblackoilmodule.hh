@@ -36,28 +36,28 @@
 
 #include <opm/material/common/Valgrind.hpp>
 
-#if HAVE_ECL_INPUT
 #include <opm/parser/eclipse/Units/Units.hpp>
 #include <opm/parser/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
-#endif
-
-#if HAVE_ECL_OUTPUT
 #include <opm/output/data/Cells.hpp>
 #include <opm/output/eclipse/EclipseIO.hpp>
-#endif
-
 #include <opm/common/OpmLog/OpmLog.hpp>
 
 #include <dune/common/fvector.hh>
 
 #include <type_traits>
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 // create new type tag for the Ecl-output
 NEW_TYPE_TAG(EclOutputBlackOil);
 
-} // namespace Properties
+NEW_PROP_TAG(ForceDisableFluidInPlaceOutput);
+
+SET_BOOL_PROP(EclOutputBlackOil, ForceDisableFluidInPlaceOutput, false);
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 // forward declaration
 template <class TypeTag>
@@ -129,6 +129,17 @@ public:
                 }
             }
         }
+
+        forceDisableFipOutput_ = EWOMS_GET_PARAM(TypeTag, bool, ForceDisableFluidInPlaceOutput);
+    }
+
+    /*!
+     * \brief Register all run-time parameters for the Vtk output module.
+     */
+    static void registerParameters()
+    {
+        EWOMS_REGISTER_PARAM(TypeTag, bool, ForceDisableFluidInPlaceOutput,
+                             "Do not print fluid-in-place values after each report step even if requested by the deck.");
     }
 
     /*!
@@ -192,15 +203,15 @@ public:
                        || well->getPLTActive(reportStepNum)))
                     continue;
 
-                for (const auto& completion: well->getCompletions(reportStepNum)) {
-                    const size_t i = size_t(completion.getI());
-                    const size_t j = size_t(completion.getJ());
-                    const size_t k = size_t(completion.getK());
+                for (const auto& connection: well->getConnections(reportStepNum)) {
+                    const size_t i = size_t(connection.getI());
+                    const size_t j = size_t(connection.getJ());
+                    const size_t k = size_t(connection.getK());
                     const size_t index = simulator_.vanguard().eclState().getInputGrid().getGlobalIndex(i, j, k);
 
-                    oilCompletionPressures_.emplace(std::make_pair(index, 0.0));
-                    waterCompletionSaturations_.emplace(std::make_pair(index, 0.0));
-                    gasCompletionSaturations_.emplace(std::make_pair(index, 0.0));
+                    oilConnectionPressures_.emplace(std::make_pair(index, 0.0));
+                    waterConnectionSaturations_.emplace(std::make_pair(index, 0.0));
+                    gasConnectionSaturations_.emplace(std::make_pair(index, 0.0));
                 }
             }
         }
@@ -554,14 +565,14 @@ public:
             }
 
             // Adding Well RFT data
-            if (oilCompletionPressures_.count(cartesianIdx) > 0) {
-                oilCompletionPressures_[cartesianIdx] = Opm::getValue(fs.pressure(oilPhaseIdx));
+            if (oilConnectionPressures_.count(cartesianIdx) > 0) {
+                oilConnectionPressures_[cartesianIdx] = Opm::getValue(fs.pressure(oilPhaseIdx));
             }
-            if (waterCompletionSaturations_.count(cartesianIdx) > 0) {
-                waterCompletionSaturations_[cartesianIdx] = Opm::getValue(fs.saturation(waterPhaseIdx));
+            if (waterConnectionSaturations_.count(cartesianIdx) > 0) {
+                waterConnectionSaturations_[cartesianIdx] = Opm::getValue(fs.saturation(waterPhaseIdx));
             }
-            if (gasCompletionSaturations_.count(cartesianIdx) > 0) {
-                gasCompletionSaturations_[cartesianIdx] = Opm::getValue(fs.saturation(gasPhaseIdx));
+            if (gasConnectionSaturations_.count(cartesianIdx) > 0) {
+                gasConnectionSaturations_[cartesianIdx] = Opm::getValue(fs.saturation(gasPhaseIdx));
             }
         }
     }
@@ -649,35 +660,35 @@ public:
                 if (!(well->getRFTActive(reportStepNum)
                        || well->getPLTActive(reportStepNum)))
                     continue;
-                wellData.completions.resize(well->getCompletions(reportStepNum).size());
+                wellData.connections.resize(well->getConnections(reportStepNum).size());
                 size_t count = 0;
-                for (const auto& completion: well->getCompletions(reportStepNum)) {
-                    const size_t i = size_t(completion.getI());
-                    const size_t j = size_t(completion.getJ());
-                    const size_t k = size_t(completion.getK());
+                for (const auto& connection: well->getConnections(reportStepNum)) {
+                    const size_t i = size_t(connection.getI());
+                    const size_t j = size_t(connection.getJ());
+                    const size_t k = size_t(connection.getK());
 
                     const size_t index = simulator_.vanguard().eclState().getInputGrid().getGlobalIndex(i, j, k);
-                    auto& completionData = wellData.completions[count];
-                    completionData.index = index;
+                    auto& connectionData = wellData.connections[count];
+                    connectionData.index = index;
                     count++;
                 }
                 wellDatas.emplace(std::make_pair(well->name(), wellData));
             }
 
             Opm::data::Well& wellData = wellDatas.at(well->name());
-            for (auto& completionData: wellData.completions) {
-                const auto index = completionData.index;
-                if (oilCompletionPressures_.count(index) > 0)
-                    completionData.cell_pressure = oilCompletionPressures_.at(index);
-                if (waterCompletionSaturations_.count(index) > 0)
-                    completionData.cell_saturation_water = waterCompletionSaturations_.at(index);
-                if (gasCompletionSaturations_.count(index) > 0)
-                    completionData.cell_saturation_gas = gasCompletionSaturations_.at(index);
+            for (auto& connectionData: wellData.connections) {
+                const auto index = connectionData.index;
+                if (oilConnectionPressures_.count(index) > 0)
+                    connectionData.cell_pressure = oilConnectionPressures_.at(index);
+                if (waterConnectionSaturations_.count(index) > 0)
+                    connectionData.cell_saturation_water = waterConnectionSaturations_.at(index);
+                if (gasConnectionSaturations_.count(index) > 0)
+                    connectionData.cell_saturation_gas = gasConnectionSaturations_.at(index);
             }
         }
-        oilCompletionPressures_.clear();
-        waterCompletionSaturations_.clear();
-        gasCompletionSaturations_.clear();
+        oilConnectionPressures_.clear();
+        waterConnectionSaturations_.clear();
+        gasConnectionSaturations_.clear();
     }
 
     /*!
@@ -1216,6 +1227,9 @@ private:
 
     void outputRegionFluidInPlace_(const ScalarBuffer& oip, const ScalarBuffer& cip, const Scalar& pav, const int reg)
     {
+        if (forceDisableFipOutput_)
+            return;
+
         const Opm::UnitSystem& units = simulator_.vanguard().eclState().getUnits();
         std::ostringstream ss;
         if (!reg) {
@@ -1280,6 +1294,7 @@ private:
 
     bool outputFipRestart_;
     bool computeFip_;
+    bool forceDisableFipOutput_;
 
     ScalarBuffer saturation_[numPhases];
     ScalarBuffer oilPressure_;
@@ -1314,9 +1329,9 @@ private:
     ScalarBuffer pressureTimesPoreVolume_;
     ScalarBuffer pressureTimesHydrocarbonVolume_;
     std::map<std::pair<std::string, int>, double> blockData_;
-    std::map<size_t, Scalar> oilCompletionPressures_;
-    std::map<size_t, Scalar> waterCompletionSaturations_;
-    std::map<size_t, Scalar> gasCompletionSaturations_;
+    std::map<size_t, Scalar> oilConnectionPressures_;
+    std::map<size_t, Scalar> waterConnectionSaturations_;
+    std::map<size_t, Scalar> gasConnectionSaturations_;
 };
 } // namespace Ewoms
 

@@ -55,8 +55,8 @@ template <class TypeTag>
 class ImmiscibleModel;
 }
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 //! The generic type tag for problems using the immiscible multi-phase model
 NEW_TYPE_TAG(ImmiscibleModel, INHERITS_FROM(MultiPhaseBaseModel, VtkEnergy));
 //! The type tag for single-phase immiscible problems
@@ -102,7 +102,7 @@ SET_PROP(ImmiscibleSinglePhaseModel, FluidSystem)
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
     typedef typename GET_PROP_TYPE(TypeTag, Fluid) Fluid;
 public:
-    typedef Opm::FluidSystems::SinglePhase<Scalar , Fluid> type;
+    typedef Opm::SinglePhaseFluidSystem<Scalar , Fluid> type;
 };
 
 SET_PROP(ImmiscibleSinglePhaseModel, Fluid)
@@ -149,11 +149,13 @@ private:
     typedef typename GET_PROP_TYPE(TypeTag, NonwettingPhase) NonwettingPhase;
 
 public:
-    typedef Opm::FluidSystems::TwoPhaseImmiscible<Scalar, WettingPhase,
-                                              NonwettingPhase> type;
+    typedef Opm::TwoPhaseImmiscibleFluidSystem<Scalar, WettingPhase, NonwettingPhase> type;
 };
 
-} // namespace Properties
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup ImmiscibleModel

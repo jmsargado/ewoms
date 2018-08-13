@@ -35,11 +35,8 @@
 #include <ewoms/io/baseoutputwriter.hh>
 #include <ewoms/parallel/tasklets.hh>
 
-#if HAVE_ECL_OUTPUT
 #include <opm/output/eclipse/EclipseIO.hpp>
 #include <opm/output/eclipse/RestartValue.hpp>
-#endif
-
 #include <opm/parser/eclipse/Units/UnitSystem.hpp>
 
 #include <opm/grid/GridHelpers.hpp>
@@ -51,12 +48,15 @@
 #include <utility>
 #include <string>
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_PROP_TAG(EnableEclOutput);
 NEW_PROP_TAG(EnableAsyncEclOutput);
 NEW_PROP_TAG(EclOutputDoublePrecision);
-}
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 template <class TypeTag>
 class EclWriter;
@@ -99,6 +99,8 @@ class EclWriter
 public:
     static void registerParameters()
     {
+        EclOutputBlackOilModule<TypeTag>::registerParameters();
+
         EWOMS_REGISTER_PARAM(TypeTag, bool, EnableAsyncEclOutput,
                              "Write the ECL-formated results in a non-blocking way (i.e., using a separate thread).");
     }
@@ -132,27 +134,25 @@ public:
 
     void writeInit()
     {
-#if !HAVE_ECL_OUTPUT
-        throw std::runtime_error("Eclipse output support not available in opm-common, unable to write ECL output!");
-#else
         if (collectToIORank_.isIORank()) {
             std::map<std::string, std::vector<int> > integerVectors;
             if (collectToIORank_.isParallel())
                 integerVectors.emplace("MPI_RANK", collectToIORank_.globalRanks());
             eclIO_->writeInitial(computeTrans_(), integerVectors, exportNncStructure_());
         }
-#endif
     }
 
     /*!
      * \brief collect and pass data and pass it to eclIO writer
      */
-    void writeOutput(Opm::data::Wells& localWellData, Scalar curTime, bool isSubStep, Scalar totalSolverTime, Scalar nextStepSize)
+    void writeOutput(bool isSubStep)
     {
+        Scalar curTime = simulator_.time() + simulator_.timeStepSize();
+        Scalar totalSolverTime = simulator_.executionTimer().realTimeElapsed();
+        Scalar nextStepSize = simulator_.problem().nextTimeStepSize();
 
-#if !HAVE_ECL_INPUT
-        throw std::runtime_error("Unit support not available in opm-common.");
-#endif
+        // output using eclWriter if enabled
+        Opm::data::Wells localWellData = simulator_.problem().wellModel().wellData();
 
         int episodeIdx = simulator_.episodeIndex() + 1;
         const auto& gridView = simulator_.vanguard().gridView();
@@ -233,34 +233,120 @@ public:
         }
     }
 
+    // this method is equivalent to the one above but it does not require to extract the
+    // data which ought to be written from the proper eWoms objects. this method is thus
+    // DEPRECATED!
+    void writeOutput(Opm::data::Wells& localWellData, Scalar curTime, bool isSubStep, Scalar totalSolverTime, Scalar nextStepSize)
+    {
+        int episodeIdx = simulator_.episodeIndex() + 1;
+        const auto& gridView = simulator_.vanguard().gridView();
+        int numElements = gridView.size(/*codim=*/0);
+        bool log = collectToIORank_.isIORank();
+        eclOutputModule_.allocBuffers(numElements, episodeIdx, isSubStep, log);
+
+        ElementContext elemCtx(simulator_);
+        ElementIterator elemIt = gridView.template begin</*codim=*/0>();
+        const ElementIterator& elemEndIt = gridView.template end</*codim=*/0>();
+        for (; elemIt != elemEndIt; ++elemIt) {
+            const Element& elem = *elemIt;
+            elemCtx.updatePrimaryStencil(elem);
+            elemCtx.updatePrimaryIntensiveQuantities(/*timeIdx=*/0);
+            eclOutputModule_.processElement(elemCtx);
+        }
+        eclOutputModule_.outputErrorLog();
+
+        // collect all data to I/O rank and assign to sol
+        Opm::data::Solution localCellData = {};
+        if (!isSubStep)
+            eclOutputModule_.assignToSolution(localCellData);
+
+        // add cell data to perforations for Rft output
+        if (!isSubStep)
+            eclOutputModule_.addRftDataToWells(localWellData, episodeIdx);
+
+        if (collectToIORank_.isParallel())
+            collectToIORank_.collect(localCellData, eclOutputModule_.getBlockData(), localWellData);
+        std::map<std::string, double> miscSummaryData;
+        std::map<std::string, std::vector<double>> regionData;
+        eclOutputModule_.outputFipLog(miscSummaryData, regionData, isSubStep);
+
+        // write output on I/O rank
+        if (collectToIORank_.isIORank()) {
+            const auto& eclState = simulator_.vanguard().eclState();
+            const auto& simConfig = eclState.getSimulationConfig();
+
+            // Add TCPU
+            if (totalSolverTime != 0.0)
+                miscSummaryData["TCPU"] = totalSolverTime;
+
+            bool enableDoublePrecisionOutput = EWOMS_GET_PARAM(TypeTag, bool, EclOutputDoublePrecision);
+            const Opm::data::Solution& cellData = collectToIORank_.isParallel() ? collectToIORank_.globalCellData() : localCellData;
+            const Opm::data::Wells& wellData = collectToIORank_.isParallel() ? collectToIORank_.globalWellData() : localWellData;
+            Opm::RestartValue restartValue(cellData, wellData);
+
+            const std::map<std::pair<std::string, int>, double>& blockData
+                = collectToIORank_.isParallel()
+                ? collectToIORank_.globalBlockData()
+                : eclOutputModule_.getBlockData();
+
+            // Add suggested next timestep to extra data.
+            if (!isSubStep)
+                restartValue.addExtra("OPMEXTRA", std::vector<double>(1, nextStepSize));
+
+            if (simConfig.useThresholdPressure())
+                restartValue.addExtra("THPRES", Opm::UnitSystem::measure::pressure, simulator_.problem().thresholdPressure().data());
+
+            // first, create a tasklet to write the data for the current time step to disk
+            auto eclWriteTasklet = std::make_shared<EclWriteTasklet>(*eclIO_,
+                                                                     episodeIdx,
+                                                                     isSubStep,
+                                                                     curTime,
+                                                                     restartValue,
+                                                                     miscSummaryData,
+                                                                     regionData,
+                                                                     blockData,
+                                                                     enableDoublePrecisionOutput);
+
+            // then, make sure that the previous I/O request has been completed and the
+            // number of incomplete tasklets does not increase between time steps
+            taskletRunner_->barrier();
+
+            // finally, start a new output writing job
+            taskletRunner_->dispatch(eclWriteTasklet);
+        }
+    }
+
     void restartBegin()
     {
         bool enableHysteresis = simulator_.problem().materialLawManager()->enableHysteresis();
-        std::vector<Opm::RestartKey> solution_keys {{"PRESSURE" , Opm::UnitSystem::measure::pressure},
-                                                    {"SWAT" ,     Opm::UnitSystem::measure::identity, static_cast<bool>(FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx))},
-                                                    {"SGAS" ,     Opm::UnitSystem::measure::identity, static_cast<bool>(FluidSystem::phaseIsActive(FluidSystem::gasPhaseIdx))},
-                                                    {"TEMP" ,     Opm::UnitSystem::measure::temperature}, // always required for now
-                                                    {"RS" ,       Opm::UnitSystem::measure::gas_oil_ratio, FluidSystem::enableDissolvedGas()},
-                                                    {"RV" ,       Opm::UnitSystem::measure::oil_gas_ratio, FluidSystem::enableVaporizedOil()},
-                                                    {"SOMAX",     Opm::UnitSystem::measure::identity, simulator_.problem().vapparsActive()},
-                                                    {"PCSWM_OW",  Opm::UnitSystem::measure::identity, enableHysteresis},
-                                                    {"KRNSW_OW",  Opm::UnitSystem::measure::identity, enableHysteresis},
-                                                    {"PCSWM_GO",  Opm::UnitSystem::measure::identity, enableHysteresis},
-                                                    {"KRNSW_GO",  Opm::UnitSystem::measure::identity, enableHysteresis}};
+        std::vector<Opm::RestartKey> solutionKeys{
+            {"PRESSURE" , Opm::UnitSystem::measure::pressure},
+            {"SWAT" ,     Opm::UnitSystem::measure::identity, static_cast<bool>(FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx))},
+            {"SGAS" ,     Opm::UnitSystem::measure::identity, static_cast<bool>(FluidSystem::phaseIsActive(FluidSystem::gasPhaseIdx))},
+            {"TEMP" ,     Opm::UnitSystem::measure::temperature}, // always required for now
+            {"RS" ,       Opm::UnitSystem::measure::gas_oil_ratio, FluidSystem::enableDissolvedGas()},
+            {"RV" ,       Opm::UnitSystem::measure::oil_gas_ratio, FluidSystem::enableVaporizedOil()},
+            {"SOMAX",     Opm::UnitSystem::measure::identity, simulator_.problem().vapparsActive()},
+            {"PCSWM_OW",  Opm::UnitSystem::measure::identity, enableHysteresis},
+            {"KRNSW_OW",  Opm::UnitSystem::measure::identity, enableHysteresis},
+            {"PCSWM_GO",  Opm::UnitSystem::measure::identity, enableHysteresis},
+            {"KRNSW_GO",  Opm::UnitSystem::measure::identity, enableHysteresis}
+        };
 
-        std::vector<Opm::RestartKey> extra_keys = {{"OPMEXTRA", Opm::UnitSystem::measure::identity, false}};
+        const auto& inputThpres = eclState().getSimulationConfig().getThresholdPressure();
+        std::vector<Opm::RestartKey> extraKeys = {{"OPMEXTRA", Opm::UnitSystem::measure::identity, false},
+                                                  {"THPRES", Opm::UnitSystem::measure::pressure, inputThpres.active()}};
 
         unsigned episodeIdx = simulator_.episodeIndex();
         const auto& gridView = simulator_.vanguard().gridView();
         unsigned numElements = gridView.size(/*codim=*/0);
         eclOutputModule_.allocBuffers(numElements, episodeIdx, /*isSubStep=*/false, /*log=*/false);
 
-        auto restartValues = eclIO_->loadRestart(solution_keys, extra_keys);
+        auto restartValues = eclIO_->loadRestart(solutionKeys, extraKeys);
         for (unsigned elemIdx = 0; elemIdx < numElements; ++elemIdx) {
             unsigned globalIdx = collectToIORank_.localIdxToGlobalIdx(elemIdx);
             eclOutputModule_.setRestart(restartValues.solution, elemIdx, globalIdx);
         }
-        const auto& inputThpres = eclState().getSimulationConfig().getThresholdPressure();
         if (inputThpres.active()) {
             Simulator& mutableSimulator = const_cast<Simulator&>(simulator_);
             auto& thpres = mutableSimulator.problem().thresholdPressure();

@@ -34,8 +34,8 @@
 #include <set>
 #include <vector>
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(AuxModule);
 
 // declare the properties required by the for the ecl grid manager
@@ -45,7 +45,10 @@ NEW_PROP_TAG(Scalar);
 NEW_PROP_TAG(DofMapper);
 NEW_PROP_TAG(GlobalEqVector);
 NEW_PROP_TAG(JacobianMatrix);
-} // namespace Properties
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup ModelModules
@@ -116,6 +119,15 @@ public:
      * \brief Linearize the auxiliary equation.
      */
     virtual void linearize(JacobianMatrix& matrix, GlobalEqVector& residual) = 0;
+
+    /*!
+     * \brief This method is called after the linear solver has been called but before
+     *        the solution is updated for the next iteration.
+     *
+     * It is intended to implement stuff like Schur complements.
+     */
+    virtual void postSolve(GlobalEqVector& residual)
+    {};
 
 private:
     int dofOffset_;

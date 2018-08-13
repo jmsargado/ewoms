@@ -51,8 +51,10 @@
 namespace Ewoms {
 template <class TypeTag>
 class EclBaseVanguard;
+}
 
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(EclBaseVanguard);
 
 // declare the properties required by the for the ecl simulator vanguard
@@ -61,10 +63,15 @@ NEW_PROP_TAG(EquilGrid);
 NEW_PROP_TAG(Scalar);
 NEW_PROP_TAG(EclDeckFileName);
 NEW_PROP_TAG(EclOutputDir);
+NEW_PROP_TAG(EclOutputInterval);
 
-SET_STRING_PROP(EclBaseVanguard, EclDeckFileName, "ECLDECK.DATA");
+SET_STRING_PROP(EclBaseVanguard, EclDeckFileName, "");
 SET_STRING_PROP(EclBaseVanguard, EclOutputDir, ".");
-} // namespace Properties
+SET_INT_PROP(EclBaseVanguard, EclOutputInterval, -1); // use the deck-provided value
+
+END_PROPERTIES
+
+namespace Ewoms {
 
 /*!
  * \ingroup EclBlackOilSimulator
@@ -96,6 +103,39 @@ public:
                              "The name of the file which contains the ECL deck to be simulated");
         EWOMS_REGISTER_PARAM(TypeTag, std::string, EclOutputDir,
                              "The directory to which the ECL result files are written");
+        EWOMS_REGISTER_PARAM(TypeTag, int, EclOutputInterval,
+                             "The number of report steps that ought to be skipped between two writes of ECL results");
+    }
+
+    /*!
+     * \brief Returns the canonical path to a deck file.
+     *
+     * The input can either be the canonical deck file name or the name of the case
+     * (i.e., without the .DATA extension)
+     */
+    static boost::filesystem::path canonicalDeckPath(const std::string& caseName)
+    {
+        const auto fileExists = [](const boost::filesystem::path& f) -> bool
+            {
+                if (!boost::filesystem::exists(f))
+                    return false;
+
+                if (boost::filesystem::is_regular_file(f))
+                    return true;
+
+                return boost::filesystem::is_symlink(f) && boost::filesystem::is_regular_file(boost::filesystem::read_symlink(f));
+            };
+
+        auto simcase = boost::filesystem::path(caseName);
+        if (fileExists(simcase))
+            return simcase;
+
+        for (const auto& ext : { std::string("data"), std::string("DATA") }) {
+            if (fileExists(simcase.replace_extension(ext)))
+                return simcase;
+        }
+
+        throw std::invalid_argument("Cannot find input case "+caseName);
     }
 
     /*!
@@ -131,6 +171,12 @@ public:
 #endif
 
         std::string fileName = EWOMS_GET_PARAM(TypeTag, std::string, EclDeckFileName);
+
+        if (fileName == "")
+            throw std::runtime_error("No input deck file has been specified as a command line argument,"
+                                     " or via '--ecl-deck-file-name=CASE.DATA'");
+
+        fileName = canonicalDeckPath(fileName).string();
 
         // compute the base name of the input file name
         const char directorySeparator = '/';
@@ -222,8 +268,14 @@ public:
         // the eclState is supposed to be immutable here, IMO.
         ioConfig.setOutputDir(outputDir);
 
+        // Possibly override IOConfig setting for how often RESTART files should get
+        // written to disk (every N report step)
+        int outputInterval = EWOMS_GET_PARAM(TypeTag, int, EclOutputInterval);
+        if (outputInterval >= 0)
+            eclState_->getRestartConfig().overrideRestartWriteInterval(outputInterval);
+
         asImp_().createGrids_();
-        asImp_().filterCompletions_();
+        asImp_().filterConnections_();
         asImp_().finalizeInit_();
     }
 
