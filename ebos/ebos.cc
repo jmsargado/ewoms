@@ -28,7 +28,13 @@
 #include "config.h"
 
 #if HAVE_DUNE_FEM
-#define USE_DUNE_FEM_SOLVERS 1
+
+#if ENABLE_DUNE_FEM_ISTL_SOLVERS
+#define USE_DUNE_FEM_ISTL_SOLVERS 1
+#elif ENABLE_DUNE_FEM_PETSC_SOLVERS
+#define USE_DUNE_FEM_PETSC_SOLVERS
+#endif
+
 #endif
 
 #include <opm/material/common/quad.hpp>
