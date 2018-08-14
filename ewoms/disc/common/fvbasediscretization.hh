@@ -157,9 +157,8 @@ private:
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace> DiscreteFunction;
 public:
 
-#if HAVE_PETSC
+#if USE_DUNE_FEM_PETSC_SOLVERS
     typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
-    //typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
 #else
     typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
 #endif
