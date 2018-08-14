@@ -42,6 +42,7 @@
 #include <dune/grid/io/file/vtk/vtkwriter.hh>
 
 #include <dune/common/fvector.hh>
+#include <dune/common/version.hh>
 
 #include <sstream>
 #include <memory>
@@ -145,6 +146,7 @@ protected:
 
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
+    typedef typename GET_PROP_TYPE(TypeTag, LinearSolverScalar) LinearSolverScalar;
     typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) Matrix;
     typedef typename GET_PROP_TYPE(TypeTag, GlobalEqVector) Vector;
     typedef typename GET_PROP_TYPE(TypeTag, BorderListCreator) BorderListCreator;
@@ -215,8 +217,6 @@ public:
         // the values of all processes (using the assignAdd() methods)
         overlappingMatrix_->assignFromNative(M);
 
-        asImp_().rescale_();
-
         // synchronize all entries from their master processes and add entries on the
         // process border
         overlappingMatrix_->syncAdd();
@@ -246,6 +246,11 @@ public:
      */
     bool solve(Vector& x)
     {
+#if ! DUNE_VERSION_NEWER(DUNE_COMMON, 2,7)
+        Dune::FMatrixPrecision<LinearSolverScalar>::set_singular_limit(1.e-30);
+        Dune::FMatrixPrecision<LinearSolverScalar>::set_absolute_limit(1.e-30);
+#endif
+
         (*overlappingx_) = 0.0;
 
         auto parPreCond = asImp_().preparePreconditioner_();
@@ -324,27 +329,6 @@ protected:
         overlappingx_ = new OverlappingVector(*overlappingb_);
 
         // writeOverlapToVTK_();
-    }
-
-    void rescale_()
-    {
-        const auto& overlap = overlappingMatrix_->overlap();
-        for (unsigned domesticRowIdx = 0; domesticRowIdx < overlap.numLocal(); ++domesticRowIdx) {
-            Index nativeRowIdx = overlap.domesticToNative(static_cast<Index>(domesticRowIdx));
-            auto& row = (*overlappingMatrix_)[domesticRowIdx];
-
-            auto colIt = row.begin();
-            const auto& colEndIt = row.end();
-            for (; colIt != colEndIt; ++ colIt) {
-                auto& entry = *colIt;
-                for (unsigned i = 0; i < entry.rows; ++i)
-                    entry[i] *= simulator_.model().eqWeight(nativeRowIdx, i);
-            }
-
-            auto& rhsEntry = (*overlappingb_)[domesticRowIdx];
-            for (unsigned i = 0; i < rhsEntry.size(); ++i)
-                rhsEntry[i] *= simulator_.model().eqWeight(nativeRowIdx, i);
-        }
     }
 
     void cleanup_()

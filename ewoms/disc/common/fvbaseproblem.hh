@@ -117,6 +117,7 @@ public:
 #endif
         , boundingBoxMin_(std::numeric_limits<double>::max())
         , boundingBoxMax_(-std::numeric_limits<double>::max())
+        , nextTimeStepSize_(0.0)
         , simulator_(simulator)
         , defaultVtkWriter_(0)
     {
@@ -140,6 +141,15 @@ public:
             bool asyncVtkOutput =
                 simulator_.gridView().comm().size() == 1 &&
                 EWOMS_GET_PARAM(TypeTag, bool, EnableAsyncVtkOutput);
+
+            // asynchonous VTK output currently does not work in conjunction with grid
+            // adaptivity because the async-IO code assumes that the grid stays
+            // constant. complain about that case.
+            bool enableGridAdaptation = EWOMS_GET_PARAM(TypeTag, bool, EnableGridAdaptation);
+            if (asyncVtkOutput && enableGridAdaptation)
+                throw std::runtime_error("Asynchronous VTK output currently cannot be used "
+                                         "at the same time as grid adaptivity");
+
             defaultVtkWriter_ = new VtkMultiWriter(asyncVtkOutput, gridView_, asImp_().name());
         }
     }
@@ -199,6 +209,7 @@ public:
      *
      * Positional parameters are parameters that are not prefixed by any parameter name.
      *
+     * \param seenParams The parameters which have already been seen in the current context
      * \param errorMsg If the positional argument cannot be handled, this is the reason why
      * \param argc The total number of command line parameters
      * \param argv The string value of the command line parameters
@@ -209,7 +220,8 @@ public:
      *         the next regular parameter. If this is less than 1, it indicated that the
      *         positional parameter was invalid.
      */
-    static int handlePositionalParameter(std::string& errorMsg,
+    static int handlePositionalParameter(std::set<std::string>& seenParams OPM_UNUSED,
+                                         std::string& errorMsg,
                                          int argc OPM_UNUSED,
                                          const char** argv,
                                          int paramIdx,
@@ -275,7 +287,7 @@ public:
      * \param timeIdx The index used for the time discretization
      */
     template <class Context>
-    void constraints(Constraints& constraints OPM_UNUSED,
+    void constraints(Constraints& constrs OPM_UNUSED,
                      const Context& context OPM_UNUSED,
                      unsigned spaceIdx OPM_UNUSED,
                      unsigned timeIdx OPM_UNUSED) const
@@ -490,12 +502,21 @@ public:
     }
 
     /*!
+     * \brief Impose the next time step size to be used externally.
+     */
+    void setNextTimeStepSize(Scalar dt)
+    { nextTimeStepSize_ = dt; }
+
+    /*!
      * \brief Called by Ewoms::Simulator whenever a solution for a
      *        time step has been computed and the simulation time has
      *        been updated.
      */
-    Scalar nextTimeStepSize()
+    Scalar nextTimeStepSize() const
     {
+        if (nextTimeStepSize_ > 0.0)
+            return nextTimeStepSize_;
+
         Scalar dtNext = std::min(EWOMS_GET_PARAM(TypeTag, Scalar, MaxTimeStepSize),
                                  newtonMethod().suggestTimeStepSize(simulator().timeStepSize()));
 
@@ -684,7 +705,7 @@ public:
      *
      * \param verbose Specify if a message should be printed whenever a file is written
      */
-    void writeOutput(bool verbose = true)
+    void writeOutput(bool isSubStep, bool verbose = true)
     {
         if (!enableVtkOutput_())
             return;
@@ -728,6 +749,7 @@ private:
     VertexMapper vertexMapper_;
     GlobalPosition boundingBoxMin_;
     GlobalPosition boundingBoxMax_;
+    Scalar nextTimeStepSize_;
 
     // Attributes required for the actual simulation
     Simulator& simulator_;

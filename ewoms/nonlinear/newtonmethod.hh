@@ -359,7 +359,7 @@ public:
 
                 // do the actual linearization
                 linearizeTimer_.start();
-                asImp_().linearize_();
+                asImp_().linearizeDomain_();
                 linearizeTimer_.stop();
 
                 // notify the implementation of the successful linearization on order to
@@ -369,8 +369,10 @@ public:
                 auto& M = linearizer.matrix();
                 auto& b = linearizer.residual();
                 linearSolver_.prepareRhs(M, b);
-                asImp_().preSolve_(currentSolution,  b);
+                asImp_().preSolve_(currentSolution, b);
                 updateTimer_.stop();
+
+                asImp_().linearizeAuxiliaryEquations_();
 
                 if (!asImp_().proceed_()) {
                     if (asImp_().verbose_() && isatty(fileno(stdout)))
@@ -393,7 +395,7 @@ public:
                 }
 
                 solveTimer_.start();
-                solutionUpdate = 0;
+                solutionUpdate = 0.0;
                 linearSolver_.prepareMatrix(M);
                 bool converged = linearSolver_.solve(solutionUpdate);
                 solveTimer_.stop();
@@ -420,8 +422,7 @@ public:
                 // update the current solution (i.e. uOld) with the delta
                 // (i.e. u). The result is stored in u
                 updateTimer_.start();
-                asImp_().postSolve_(nextSolution,
-                                    currentSolution,
+                asImp_().postSolve_(currentSolution,
                                     b,
                                     solutionUpdate);
                 asImp_().update_(nextSolution, currentSolution, solutionUpdate, b);
@@ -597,16 +598,49 @@ protected:
      */
     void beginIteration_()
     {
-        problem().beginIteration();
+        const auto& comm = simulator_.gridView().comm();
+        bool succeeded = true;
+        try {
+            problem().beginIteration();
+        }
+        catch (const std::exception& e) {
+            succeeded = false;
+
+            std::cout << "rank " << simulator_.gridView().comm().rank()
+                      << " caught an exception while pre-processing the problem:" << e.what()
+                      << "\n"  << std::flush;
+        }
+#if ! DUNE_VERSION_NEWER(DUNE_COMMON, 2,5)
+        catch (const Dune::Exception& e)
+        {
+            succeeded = false;
+
+            std::cout << "rank " << simulator_.gridView().comm().rank()
+                      << " caught an exception while pre-processing the problem:" << e.what()
+                      << "\n"  << std::flush;
+        }
+#endif
+
+        succeeded = comm.min(succeeded);
+
+        if (!succeeded)
+            throw Opm::NumericalIssue("pre processing of the problem failed");
+
         lastError_ = error_;
     }
 
     /*!
-     * \brief Linearize the global non-linear system of equations.
+     * \brief Linearize the global non-linear system of equations associated with the
+     *        spatial domain.
      */
-    void linearize_()
+    void linearizeDomain_()
     {
-        model().linearizer().linearize();
+        model().linearizer().linearizeDomain();
+    }
+
+    void linearizeAuxiliaryEquations_()
+    {
+        model().linearizer().linearizeAuxiliaryEquations();
         model().linearizer().finalize();
     }
 
@@ -654,17 +688,50 @@ protected:
      * For our purposes, the error of a solution is defined as the
      * maximum of the weighted residual of a given solution.
      *
-     * \param nextSolution The solution after the current iteration
      * \param currentSolution The solution at the beginning the current iteration
      * \param currentResidual The residual (i.e., right-hand-side) of the current
      *                        iteration's solution.
      * \param solutionUpdate The difference between the current and the next solution
      */
-    void postSolve_(const SolutionVector& nextSolution  OPM_UNUSED,
-                      const SolutionVector& currentSolution  OPM_UNUSED,
-                      const GlobalEqVector& currentResidual  OPM_UNUSED,
-                      const GlobalEqVector& solutionUpdate  OPM_UNUSED)
-    { }
+    void postSolve_(const SolutionVector& currentSolution OPM_UNUSED,
+                    const GlobalEqVector& currentResidual OPM_UNUSED,
+                    GlobalEqVector& solutionUpdate OPM_UNUSED)
+    {
+        // loop over the auxiliary modules and ask them to post process the solution
+        // vector.
+        auto& model = simulator_.model();
+        const auto& comm = simulator_.gridView().comm();
+        for (unsigned i = 0; i < model.numAuxiliaryModules(); ++i) {
+            auto& auxMod = *model.auxiliaryModule(i);
+
+            bool succeeded = true;
+            try {
+                auxMod.postSolve(solutionUpdate);
+            }
+            catch (const std::exception& e) {
+                succeeded = false;
+
+                std::cout << "rank " << simulator_.gridView().comm().rank()
+                          << " caught an exception while post processing an auxiliary module:" << e.what()
+                          << "\n"  << std::flush;
+            }
+#if ! DUNE_VERSION_NEWER(DUNE_COMMON, 2,5)
+            catch (const Dune::Exception& e)
+            {
+                succeeded = false;
+
+                std::cout << "rank " << simulator_.gridView().comm().rank()
+                          << " caught an exception while post processing an auxiliary module:" << e.what()
+                          << "\n"  << std::flush;
+            }
+#endif
+
+            succeeded = comm.min(succeeded);
+
+            if (!succeeded)
+                throw Opm::NumericalIssue("post processing of an auxilary equation failed");
+        }
+    }
 
     /*!
      * \brief Update the current solution with a delta vector.
@@ -774,7 +841,34 @@ protected:
                        const SolutionVector& currentSolution  OPM_UNUSED)
     {
         ++numIterations_;
-        problem().endIteration();
+
+        const auto& comm = simulator_.gridView().comm();
+        bool succeeded = true;
+        try {
+            problem().endIteration();
+        }
+        catch (const std::exception& e) {
+            succeeded = false;
+
+            std::cout << "rank " << simulator_.gridView().comm().rank()
+                      << " caught an exception while letting the problem post-process:" << e.what()
+                      << "\n"  << std::flush;
+        }
+#if ! DUNE_VERSION_NEWER(DUNE_COMMON, 2,5)
+        catch (const Dune::Exception& e)
+        {
+            succeeded = false;
+
+            std::cout << "rank " << simulator_.gridView().comm().rank()
+                      << " caught an exception while letting the problem post process:" << e.what()
+                      << "\n"  << std::flush;
+        }
+#endif
+
+        succeeded = comm.min(succeeded);
+
+        if (!succeeded)
+            throw Opm::NumericalIssue("post processing of the problem failed");
 
         if (asImp_().verbose_()) {
             std::cout << "Newton iteration " << numIterations_ << ""

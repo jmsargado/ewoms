@@ -284,6 +284,8 @@ public:
      */
     const Ewoms::Timer& executionTimer() const
     { return executionTimer_; }
+    Ewoms::Timer& executionTimer()
+    { return executionTimer_; }
 
     /*!
      * \brief Returns a reference to the timer object which measures the time needed for
@@ -573,7 +575,7 @@ public:
 
             // write initial condition
             if (problem_->shouldWriteOutput())
-                problem_->writeOutput();
+                problem_->writeOutput(/*isSubstep=*/false);
 
             timeStepSize_ = oldTimeStepSize;
             timeStepIdx_ = oldTimeStepIdx;
@@ -647,7 +649,7 @@ public:
             // write the result to disk
             writeTimer_.start();
             if (problem_->shouldWriteOutput())
-                problem_->writeOutput();
+                problem_->writeOutput(/*isSubstep=*/!episodeWillBeOver());
             writeTimer_.stop();
 
             // do the next time integration
