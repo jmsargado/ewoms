@@ -133,6 +133,16 @@ EwomsAddApplication(ebos
                     EXE_NAME ebos
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
 
+EwomsAddApplication(ebos_femistl
+                    SOURCES ebos/ebos_femistl.cc
+                    EXE_NAME ebos_femistl
+                    CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+
+EwomsAddApplication(ebos_fempetsc
+                    SOURCES ebos/ebos_fempetsc.cc
+                    EXE_NAME ebos_fempetsc
+                    CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+
 if(OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
   install(TARGETS ebos DESTINATION bin)
 endif()
