@@ -59,21 +59,28 @@ class FemSolverBackend;
 }} // namespace Linear, Ewoms
 
 
-namespace Ewoms {
-namespace Properties {
+BEGIN_PROPERTIES
+
 NEW_TYPE_TAG(FemSolverBackend);
 
 SET_TYPE_PROP(FemSolverBackend,
               LinearSolverBackend,
               Ewoms::Linear::FemSolverBackend<TypeTag>);
 
-NEW_PROP_TAG(LinearSolverTolerance);
+//NEW_PROP_TAG(LinearSolverTolerance);
 NEW_PROP_TAG(LinearSolverMaxIterations);
 NEW_PROP_TAG(LinearSolverVerbosity);
 
+//! make the linear solver shut up by default
+SET_INT_PROP(FemSolverBackend, LinearSolverVerbosity, 0);
 
-}} // namespace Properties, Ewoms
+//! set the default number of maximum iterations for the linear solver
+SET_INT_PROP(FemSolverBackend, LinearSolverMaxIterations, 1000);
 
+//! make the linear solver shut up by default
+//SET_SCALAR_PROP(FemSolverBackend, LinearSolverTolerance, 0.01);
+
+END_PROPERTIES
 
 namespace Ewoms {
 namespace Linear {
@@ -125,7 +132,6 @@ protected:
     template <int d, class LinOp>
     struct SolverSelector
     {
-        //typedef Dune::Fem::OEMBICGSTABOp< SolverDiscreteFunction, LinearOperator >  type;
         typedef Dune::Fem::KrylovInverseOperator< DiscreteFunction >  type;
     };
 
@@ -164,14 +170,14 @@ public:
      */
     static void registerParameters()
     {
-        //EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverTolerance,
-        //                     "The maximum allowed error between of the linear solver");
-        //EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverMaxIterations,
-        //                     "The maximum number of iterations of the linear solver");
-        //EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverVerbosity,
-        //                     "The verbosity level of the linear solver");
+        EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverTolerance,
+                             "The maximum allowed error between of the linear solver");
+        EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverMaxIterations,
+                             "The maximum number of iterations of the linear solver");
+        EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverVerbosity,
+                             "The verbosity level of the linear solver");
 
-        // PreconditionerWrapper::registerParameters();
+        //PreconditionerWrapper::registerParameters();
 
         // set ilu preconditioner istl
         Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
@@ -195,7 +201,7 @@ public:
 
     void prepareMatrix(const LinearOperator& op)
     {
-        Scalar linearSolverTolerance = 0.01;//EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
+        Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         // reset linear solver
@@ -225,7 +231,7 @@ public:
         (*invOp_)( B, X );
 
         // return the result of the solver
-        return true; //result;
+        return invOp_->iterations() < 0 ? false : true;
     }
 
     /*!
@@ -233,7 +239,7 @@ public:
      */
     size_t iterations () const {
         assert( invOp_);
-        return invOp_->iterations();
+        return std::abs(invOp_->iterations());
     }
 
 protected:
