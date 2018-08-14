@@ -102,7 +102,7 @@ public:
     typedef Dune::Fem::LagrangeDiscreteFunctionSpace< FunctionSpace, GridPart, 1 > type;
 };
 #else
-SET_PROP(EcfvDiscretization, DiscreteFunctionSpace)
+SET_PROP(VcfvDiscretization, DiscreteFunctionSpace)
 {
 public:
     typedef size_t type;

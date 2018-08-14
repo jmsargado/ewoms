@@ -94,8 +94,16 @@ public:
 #else
 SET_PROP(EcfvDiscretization, DiscreteFunctionSpace)
 {
+private:
+    struct DiscreteFunctionSpace
+    {
+        size_t nDofs_;
+        DiscreteFunctionSpace( const size_t n ) : nDofs_( n ) {}
+        void extendSize( const size_t ) {}
+        size_t size() const { return nDofs_; }
+    };
 public:
-    typedef size_t type;
+    typedef DiscreteFunctionSpace type;
 };
 #endif
 

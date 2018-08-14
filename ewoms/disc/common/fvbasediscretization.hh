@@ -371,13 +371,15 @@ class FvBaseDiscretization
 
     typedef typename LocalResidual::LocalEvalBlockVector LocalEvalBlockVector;
 
+    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace)    DiscreteFunctionSpace;
+
     class BlockVectorWrapper
     {
     protected:
         SolutionVector blockVector_;
     public:
-        BlockVectorWrapper(const std::string& name OPM_UNUSED, const size_t size)
-            : blockVector_(size)
+        BlockVectorWrapper(const std::string& name OPM_UNUSED, const DiscreteFunctionSpace& space)
+            : blockVector_(space.size())
         {}
 
         SolutionVector& blockVector()
@@ -387,8 +389,6 @@ class FvBaseDiscretization
     };
 
 #if HAVE_DUNE_FEM
-    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace)    DiscreteFunctionSpace;
-
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunction)         DiscreteFunction;
     // discrete function storing solution data
     //typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace, PrimaryVariables> DiscreteFunction;
@@ -404,12 +404,6 @@ class FvBaseDiscretization
     typedef Dune::Fem::AdaptationManager<Grid, RestrictProlong  > AdaptationManager;
 #else
     typedef BlockVectorWrapper  DiscreteFunction;
-    struct DiscreteFunctionSpace
-    {
-        size_t nDofs_;
-        DiscreteFunctionSpace( const size_t n ) : nDofs_( n ) {}
-        void extendSize( const size_t ) {}
-    };
 #endif
 
     // copying a discretization object is not a good idea
