@@ -122,8 +122,8 @@ protected:
         const auto& gridView = this->simulator_.gridView();
         typedef CombinedCriterion<OverlappingVector, decltype(gridView.comm())> CCC;
 
-        Scalar linearSolverTolerance = 0.01;//EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-        Scalar linearSolverAbsTolerance = 1e308;//this->simulator_.model().newtonMethod().tolerance() / 10.0;
+        Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
+        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
 
         convCrit_.reset(new CCC(gridView.comm(),
                                 /*residualReductionTolerance=*/linearSolverTolerance,
