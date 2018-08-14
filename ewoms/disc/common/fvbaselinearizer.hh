@@ -573,36 +573,6 @@ private:
         if (GET_PROP_VALUE(TypeTag, UseLinearizationLock))
             globalMatrixMutex_.lock();
 
-#if USE_DUNE_FEM_SOLVERS
-        const auto& stencil = elementCtx->stencil( /* timeIdx = */ 0 );
-
-        const size_t numPrimaryDof = elementCtx->numPrimaryDof(/*timeIdx=*/0);
-        for (unsigned primaryDofIdx = 0; primaryDofIdx < numPrimaryDof; ++ primaryDofIdx) {
-            unsigned globI = elementCtx->globalSpaceIndex(/*spaceIdx=*/primaryDofIdx, /*timeIdx=*/0);
-
-            // update the right hand side
-            residual_[globI] += localLinearizer.residual(primaryDofIdx);
-        }
-
-        for (unsigned dofIdx = 0; dofIdx < elementCtx->numDof(/*timeIdx=*/0); ++ dofIdx)
-        {
-            auto localMatrix = matrix_->localMatrix( elem,  stencil.element( dofIdx ) );//, elem );
-            for (unsigned primaryDofIdx = 0; primaryDofIdx < numPrimaryDof; ++ primaryDofIdx)
-            {
-                const auto& localJac = localLinearizer.jacobian(dofIdx, primaryDofIdx);
-                for( int i=0; i<numEq; ++i )
-                {
-                    for( int j=0; j<numEq; ++j )
-                    {
-                        localMatrix.add( i, j, localJac[ i ][ j ] );
-                    }
-                }
-            }
-        }
-
-        if (GET_PROP_VALUE(TypeTag, UseLinearizationLock))
-            globalMatrixMutex_.unlock();
-#else
         size_t numPrimaryDof = elementCtx->numPrimaryDof(/*timeIdx=*/0);
         for (unsigned primaryDofIdx = 0; primaryDofIdx < numPrimaryDof; ++ primaryDofIdx) {
             unsigned globI = elementCtx->globalSpaceIndex(/*spaceIdx=*/primaryDofIdx, /*timeIdx=*/0);
@@ -614,10 +584,13 @@ private:
             for (unsigned dofIdx = 0; dofIdx < elementCtx->numDof(/*timeIdx=*/0); ++ dofIdx) {
                 unsigned globJ = elementCtx->globalSpaceIndex(/*spaceIdx=*/dofIdx, /*timeIdx=*/0);
 
+#if USE_DUNE_FEM_SOLVERS
+                matrix_->addBlock( globJ, globI, localLinearizer.jacobian(dofIdx, primaryDofIdx) );
+#else
                 (*matrix_)[globJ][globI] += localLinearizer.jacobian(dofIdx, primaryDofIdx);
+#endif
             }
         }
-#endif
 
         if (GET_PROP_VALUE(TypeTag, UseLinearizationLock))
             globalMatrixMutex_.unlock();
