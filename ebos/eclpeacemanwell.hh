@@ -343,7 +343,7 @@ public:
     {
         const SolutionVector& curSol = simulator_.model().solution(/*timeIdx=*/0);
 
-        typedef Dune::FieldMatrix<Scalar, numModelEq, numModelEq> MatrixBlock;
+        typedef typename JacobianMatrix :: block_type MatrixBlock;
 
         unsigned wellGlobalDofIdx = AuxModule::localToGlobalDof(/*localDofIdx=*/0);
         residual[wellGlobalDofIdx] = 0.0;
