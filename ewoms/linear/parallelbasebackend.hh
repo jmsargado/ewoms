@@ -173,6 +173,7 @@ public:
     ParallelBaseBackend(const Simulator& simulator)
         : simulator_(simulator)
         , gridSequenceNumber_( -1 )
+        , lastIterations_( -1 )
     {
         overlappingMatrix_ = nullptr;
         overlappingb_ = nullptr;
@@ -277,6 +278,8 @@ public:
 
         // run the linear solver and have some fun
         bool result = asImp_().runSolver_(solver);
+        // store number of iterations used
+        lastIterations_ = solver->report().iterations();
 
         // copy the result back to the non-overlapping vector
         overlappingx_->assignTo(x);
@@ -299,7 +302,7 @@ protected:
     const Implementation& asImp_() const
     { return *static_cast<const Implementation *>(this); }
 
-    size_t iterations_() const { return size_t(-1); }
+    size_t iterations_() const { return lastIterations_; }
 
     void prepare_(const Matrix& M)
     {
@@ -411,6 +414,7 @@ protected:
 
     const Simulator& simulator_;
     int gridSequenceNumber_;
+    size_t lastIterations_;
 
     OverlappingMatrix *overlappingMatrix_;
     OverlappingVector *overlappingb_;
