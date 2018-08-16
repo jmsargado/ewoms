@@ -41,7 +41,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 
-#if USE_DUNE_FEM_SOLVERS
+#if HAVE_DUNE_FEM
 #include <dune/fem/operator/common/stencil.hh>
 #endif
 
@@ -153,13 +153,6 @@ class FvBaseLinearizer
     typedef Dune::FieldVector<Scalar, numEq> VectorBlock;
 
     static const bool linearizeNonLocalElements = GET_PROP_VALUE(TypeTag, LinearizeNonLocalElements);
-
-    struct NoMatrixDeleter
-    {
-        inline void operator ()(Matrix* matrix)
-        {
-        }
-    };
 
     // copying the linearizer is not a good idea
     FvBaseLinearizer(const FvBaseLinearizer&);
@@ -279,9 +272,7 @@ public:
 
     void finalize()
     {
-#if USE_DUNE_FEM_SOLVERS
         matrix_->communicate();
-#endif
     }
 
     /*!
@@ -394,23 +385,16 @@ private:
     void createMatrix_()
     {
         const auto& model = model_();
-#if USE_DUNE_FEM_SOLVERS
-        matrix_.reset( new Matrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
-        DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace > stencil( space_, space_ );
-        stencil.addAuxiliaryStencil( model );
-        matrix_->reserve(stencil);
-#else
-        size_t numAllDof = model.numTotalDof();
-
-        // allocate raw matrix
-        matrix_.reset( new Matrix(numAllDof, numAllDof, Matrix::random) );
-
+        //DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace > stencil( space_, space_ );
+        //stencil.addAuxiliaryStencil( model );
+        //matrix_->reserve(stencil);
         Stencil stencil(gridView_(), model_().dofMapper() );
 
         // for the main model, find out the global indices of the neighboring degrees of
         // freedom of each primary degree of freedom
-        typedef std::set<unsigned> NeighborSet;
-        std::vector<NeighborSet> neighbors(numAllDof);
+        typedef std::set< unsigned > NeighborSet;
+        std::vector<NeighborSet> sparsityPattern( model.numTotalDof() );
+
         ElementIterator elemIt = gridView_().template begin<0>();
         const ElementIterator elemEndIt = gridView_().template end<0>();
         for (; elemIt != elemEndIt; ++elemIt) {
@@ -422,7 +406,7 @@ private:
 
                 for (unsigned dofIdx = 0; dofIdx < stencil.numDof(); ++dofIdx) {
                     unsigned neighborIdx = stencil.globalSpaceIndex(dofIdx);
-                    neighbors[myIdx].insert(neighborIdx);
+                    sparsityPattern[myIdx].insert(neighborIdx);
                 }
             }
         }
@@ -431,35 +415,21 @@ private:
         // equations
         size_t numAuxMod = model.numAuxiliaryModules();
         for (unsigned auxModIdx = 0; auxModIdx < numAuxMod; ++auxModIdx)
-            model.auxiliaryModule(auxModIdx)->addNeighbors(neighbors);
+            model.auxiliaryModule(auxModIdx)->addNeighbors( sparsityPattern );
 
-        // allocate space for the rows of the matrix
-        for (unsigned dofIdx = 0; dofIdx < numAllDof; ++ dofIdx)
-            matrix_->setrowsize(dofIdx, neighbors[dofIdx].size());
-        matrix_->endrowsizes();
+        // allocate raw matrix
+        matrix_.reset( new Matrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
 
-        // fill the rows with indices. each degree of freedom talks to
-        // all of its neighbors. (it also talks to itself since
-        // degrees of freedom are sometimes quite egocentric.)
-        for (unsigned dofIdx = 0; dofIdx < numAllDof; ++ dofIdx) {
-            typename NeighborSet::iterator nIt = neighbors[dofIdx].begin();
-            typename NeighborSet::iterator nEndIt = neighbors[dofIdx].end();
-            for (; nIt != nEndIt; ++nIt)
-                matrix_->addindex(dofIdx, *nIt);
-        }
-        matrix_->endindices();
-#endif
+        // create matrix structure based on sparsity pattern
+        matrix_->reserve( sparsityPattern );
     }
 
     // reset the global linear system of equations.
     void resetSystem_()
     {
         residual_ = 0.0;
-#if USE_DUNE_FEM_SOLVERS
+        // zero all matrix entries
         matrix_->clear();
-#else
-        (*matrix_) = 0.0;
-#endif
     }
 
     // query the problem for all constraint degrees of freedom. note that this method is
@@ -521,10 +491,6 @@ private:
 
         applyConstraintsToSolution_();
 
-#if ! USE_DUNE_FEM_SOLVERS
-        *matrix_ = 0.0;
-#endif
-
         // relinearize the elements...
         ThreadedEntityIterator<GridView, /*codim=*/0> threadedElemIt(gridView_());
 #ifdef _OPENMP
@@ -584,11 +550,7 @@ private:
             for (unsigned dofIdx = 0; dofIdx < elementCtx->numDof(/*timeIdx=*/0); ++ dofIdx) {
                 unsigned globJ = elementCtx->globalSpaceIndex(/*spaceIdx=*/dofIdx, /*timeIdx=*/0);
 
-#if USE_DUNE_FEM_SOLVERS
                 matrix_->addBlock( globJ, globI, localLinearizer.jacobian(dofIdx, primaryDofIdx) );
-#else
-                (*matrix_)[globJ][globI] += localLinearizer.jacobian(dofIdx, primaryDofIdx);
-#endif
             }
         }
 
@@ -622,30 +584,18 @@ private:
         if (!enableConstraints_())
             return;
 
-        std::abort();
-        /*
-        MatrixBlock idBlock = 0.0;
-        for (unsigned i = 0; i < numEq; ++i)
-            idBlock[i][i] = 1.0;
-
         auto it = constraintsMap_.begin();
         const auto& endIt = constraintsMap_.end();
         for (; it != endIt; ++it) {
             unsigned constraintDofIdx = it->first;
 
             // reset the column of the Jacobian matrix
-            auto colIt = (*matrix_)[constraintDofIdx].begin();
-            const auto& colEndIt = (*matrix_)[constraintDofIdx].end();
-            for (; colIt != colEndIt; ++colIt)
-                *colIt = 0.0;
-
             // put an identity matrix on the main diagonal of the Jacobian
-            (*matrix_)[constraintDofIdx][constraintDofIdx] = idBlock;
+            matrix_->unitRow( constraintDofIdx );
 
             // make the right-hand side of constraint DOFs zero
             residual_[constraintDofIdx] = 0.0;
         }
-        */
     }
 
     static bool enableConstraints_()

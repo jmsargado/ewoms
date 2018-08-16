@@ -50,6 +50,7 @@
 #include <ewoms/parallel/gridcommhandles.hh>
 #include <ewoms/parallel/threadmanager.hh>
 #include <ewoms/linear/nullborderlistmanager.hh>
+#include <ewoms/linear/istlmatrixbackend.hh>
 #include <ewoms/common/simulator.hh>
 #include <ewoms/common/alignedallocator.hh>
 #include <ewoms/common/timer.hh>
@@ -175,7 +176,7 @@ private:
     typedef Dune::MatrixBlock< Scalar, numEq, numEq> Block;
     //typedef typename Dune::FieldMatrix<Scalar, numEq, numEq> MatrixBlock;
 public:
-    typedef typename Dune::BCRSMatrix<Block> type;
+    typedef typename Ewoms::Linear::ISTLMatrixBackend< Block > type;
 };
 #endif
 

@@ -364,29 +364,16 @@ public:
 
             block = 0.0;
             for (; wellDofIt != wellDofEndIt; ++ wellDofIt) {
-#if USE_DUNE_FEM_SOLVERS
                 matrix.setBlock( wellGlobalDofIdx, wellDofIt->first, block );
                 matrix.setBlock( wellDofIt->first, wellGlobalDofIdx, block );
-#else
-                matrix[wellGlobalDofIdx][wellDofIt->first] = 0.0;
-                matrix[wellDofIt->first][wellGlobalDofIdx] = 0.0;
-#endif
             }
-#if USE_DUNE_FEM_SOLVERS
             matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
-#else
-            matrix[wellGlobalDofIdx][wellGlobalDofIdx] = diagBlock;
-#endif
             residual[wellGlobalDofIdx] = 0.0;
             return;
         }
         else if (dofVariables_.empty()) {
             // the well does not feature any perforations on the local process
-#if USE_DUNE_FEM_SOLVERS
             matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
-#else
-            matrix[wellGlobalDofIdx][wellGlobalDofIdx] = diagBlock;
-#endif
             residual[wellGlobalDofIdx] = 0.0;
             return;
         }
@@ -432,11 +419,7 @@ public:
                 // go back to the original primary variables
                 priVars[priVarIdx] -= eps;
             }
-#if USE_DUNE_FEM_SOLVERS
             matrix.setBlock( wellGlobalDofIdx, gridDofIdx, block );
-#else
-            matrix[wellGlobalDofIdx][gridDofIdx] = block;
-#endif
 
             //
             /////////////
@@ -493,11 +476,7 @@ public:
             for (unsigned eqIdx = 0; eqIdx < numModelEq; ++ eqIdx)
                 block[eqIdx][0] = - Toolbox::value(q[eqIdx])/dofVars.totalVolume;
 
-#if USE_DUNE_FEM_SOLVERS
             matrix.setBlock( gridDofIdx, wellGlobalDofIdx, block );
-#else
-            matrix[gridDofIdx][wellGlobalDofIdx] = block;
-#endif
 
             //
             /////////////
@@ -511,11 +490,7 @@ public:
         Scalar wellResidStar = wellResidual_(actualBottomHolePressure_ + eps);
         diagBlock[0][0] = (wellResidStar - wellResid)/eps;
 
-#if USE_DUNE_FEM_SOLVERS
         matrix.setBlock( wellGlobalDofIdx, wellGlobalDofIdx, diagBlock );
-#else
-        matrix[ wellGlobalDofIdx ][ wellGlobalDofIdx ] = diagBlock;
-#endif
     }
 
 

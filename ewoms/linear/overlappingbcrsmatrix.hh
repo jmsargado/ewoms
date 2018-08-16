@@ -78,7 +78,7 @@ public:
                           const BlackList& blackList,
                           unsigned overlapSize)
     {
-        overlap_ = std::make_shared<Overlap>(nativeMatrix, borderList, blackList, overlapSize);
+        overlap_ = std::make_shared<Overlap>(nativeMatrix.matrix(), borderList, blackList, overlapSize);
         myRank_ = 0;
 #if HAVE_MPI
         MPI_Comm_rank(MPI_COMM_WORLD, &myRank_);
@@ -86,7 +86,7 @@ public:
 
         // build the overlapping matrix from the non-overlapping
         // matrix and the overlap
-        build_(nativeMatrix);
+        build_(nativeMatrix.matrix());
     }
 
     // this constructor is required to make the class compatible with the SeqILU class of
@@ -140,7 +140,7 @@ public:
     void assignAdd(const NativeBCRSMatrix& nativeMatrix)
     {
         // copy the native entries
-        assignFromNative(nativeMatrix);
+        assignFromNative(nativeMatrix.matrix());
 
         // communicate and add the contents of overlapping rows
         syncAdd();
@@ -156,7 +156,7 @@ public:
     void assignCopy(const NativeBCRSMatrix& nativeMatrix)
     {
         // copy the native entries
-        assignFromNative(nativeMatrix);
+        assignFromNative(nativeMatrix.matrix());
 
         // communicate and add the contents of overlapping rows
         syncCopy();

@@ -216,7 +216,7 @@ public:
         // copy the interior values of the non-overlapping linear system of
         // equations to the overlapping one. On ther border, we add up
         // the values of all processes (using the assignAdd() methods)
-        overlappingMatrix_->assignFromNative(M);
+        overlappingMatrix_->assignFromNative(M.matrix());
 
         // synchronize all entries from their master processes and add entries on the
         // process border

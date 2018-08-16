@@ -95,12 +95,16 @@ public:
 SET_PROP(EcfvDiscretization, DiscreteFunctionSpace)
 {
 private:
+    enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
     struct DiscreteFunctionSpace
     {
-        size_t nDofs_;
-        DiscreteFunctionSpace( const size_t n ) : nDofs_( n ) {}
-        void extendSize( const size_t ) {}
-        size_t size() const { return nDofs_; }
+        static const int dimRange = numEq ;
+        size_t numGridDofs_;
+        size_t extension_;
+        DiscreteFunctionSpace( const size_t numGridDofs )
+            : numGridDofs_( numGridDofs ), extension_(0) {}
+        void extendSize( const size_t extension ) { extension_ = extension; }
+        size_t size() const { return dimRange * (numGridDofs_ + extension_); }
     };
 public:
     typedef DiscreteFunctionSpace type;
