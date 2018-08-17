@@ -72,13 +72,20 @@ public:
         : ParentType(other)
     {}
 
-    template <class NativeBCRSMatrix>
-    OverlappingBCRSMatrix(const NativeBCRSMatrix& nativeMatrix,
+    template <class JacobianMatrix>
+    OverlappingBCRSMatrix(const JacobianMatrix& jacobian,
+                          const BorderList& borderList,
+                          const BlackList& blackList,
+                          unsigned overlapSize)
+        : OverlappingBCRSMatrix( jacobian.matrix(), borderList, blackList, overlapSize )
+    {}
+
+    OverlappingBCRSMatrix(const ParentType& nativeMatrix,
                           const BorderList& borderList,
                           const BlackList& blackList,
                           unsigned overlapSize)
     {
-        overlap_ = std::make_shared<Overlap>(nativeMatrix.matrix(), borderList, blackList, overlapSize);
+        overlap_ = std::make_shared<Overlap>(nativeMatrix, borderList, blackList, overlapSize);
         myRank_ = 0;
 #if HAVE_MPI
         MPI_Comm_rank(MPI_COMM_WORLD, &myRank_);
@@ -86,7 +93,7 @@ public:
 
         // build the overlapping matrix from the non-overlapping
         // matrix and the overlap
-        build_(nativeMatrix.matrix());
+        build_(nativeMatrix);
     }
 
     // this constructor is required to make the class compatible with the SeqILU class of
@@ -136,11 +143,19 @@ public:
     /*!
      * \brief Assign and syncronize the overlapping matrix from a non-overlapping one.
      */
-    template <class NativeBCRSMatrix>
-    void assignAdd(const NativeBCRSMatrix& nativeMatrix)
+    template <class JacobianMatrix>
+    void assignAdd(const JacobianMatrix& jacobian)
+    {
+        assignAdd( jacobian.matrix() );
+    }
+
+    /*!
+     * \brief Assign and syncronize the overlapping matrix from a non-overlapping one.
+     */
+    void assignAdd(const ParentType& nativeMatrix)
     {
         // copy the native entries
-        assignFromNative(nativeMatrix.matrix());
+        assignFromNative(nativeMatrix);
 
         // communicate and add the contents of overlapping rows
         syncAdd();
@@ -152,11 +167,23 @@ public:
      *
      * The non-master entries are copied from the master
      */
-    template <class NativeBCRSMatrix>
-    void assignCopy(const NativeBCRSMatrix& nativeMatrix)
+    template <class JacobianMatrix>
+    void assignCopy(const JacobianMatrix& jacobian)
+    {
+        assignCopy( jacobian.matrix() );
+    }
+
+
+    /*!
+     * \brief Assign and syncronize the overlapping matrix from a
+     *       non-overlapping one.
+     *
+     * The non-master entries are copied from the master
+     */
+    void assignCopy(const ParentType& nativeMatrix)
     {
         // copy the native entries
-        assignFromNative(nativeMatrix.matrix());
+        assignFromNative(nativeMatrix);
 
         // communicate and add the contents of overlapping rows
         syncCopy();
@@ -218,8 +245,13 @@ public:
                                 "row");
     }
 
-    template <class NativeBCRSMatrix>
-    void assignFromNative(const NativeBCRSMatrix& nativeMatrix)
+    template <class JacobianMatrix>
+    void assignFromNative(const JacobianMatrix& jacobian)
+    {
+        assignFromNative( jacobian.matrix() );
+    }
+
+    void assignFromNative(const ParentType& nativeMatrix)
     {
         // first, set everything to 0,
         BCRSMatrix::operator=(0.0);

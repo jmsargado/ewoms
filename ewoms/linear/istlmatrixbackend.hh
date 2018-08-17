@@ -101,8 +101,8 @@ public:
     inline MatrixType& matrix() { return *matrix_; }
     inline const MatrixType& matrix() const { return *matrix_; }
 
-    inline size_t N () const { return rows_; }
-    inline size_t M () const { return columns_; }
+    inline size_t rows () const { return rows_; }
+    inline size_t cols () const { return columns_; }
 
     // set all matrix entries to zero
     inline void clear()
