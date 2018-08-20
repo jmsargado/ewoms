@@ -31,8 +31,6 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/version.hh>
 
-#include <ewoms/linear/matrixblock.hh>
-
 namespace Ewoms {
 namespace Linear {
 
@@ -45,32 +43,45 @@ class ISTLMatrixBackend
 {
     typedef A AllocatorType;
 public:
-    typedef Dune::BCRSMatrix< Block, AllocatorType >   MatrixType;
-    // block_type is the same as Block
-    typedef typename MatrixType :: block_type          block_type;
+    // \brief Implementation of matrix
+    typedef Dune::BCRSMatrix< Block, AllocatorType >   Matrix;
 
+    // \brief block type forming the matrix entries (same as Block)
+    typedef typename Matrix :: block_type          block_type;
+
+    /*!
+     * \brief Constructor creating an empty matrix.
+     */
     ISTLMatrixBackend( const std::string& name, const size_t rows, const size_t columns )
         : rows_( rows )
         , columns_( columns )
         , matrix_()
     {}
 
+    /*!
+     * \brief Constructor creating an empty matrix.
+     */
     explicit ISTLMatrixBackend( const std::string& name, const int rows, const int columns )
         : ISTLMatrixBackend( name, size_t(rows), size_t(columns) )
     {}
 
+    /*!
+     * \brief Constructor creating an empty matrix.
+     */
     template <class DomainSpace, class RangeSpace>
     ISTLMatrixBackend( const std::string& name, const DomainSpace& domainSpace, const RangeSpace& rangeSpace )
         : ISTLMatrixBackend( name, domainSpace.size()/DomainSpace::dimRange, rangeSpace.size()/RangeSpace::dimRange )
     {
     }
 
-    // allocate matrix from given sparsity pattern
+    /*!
+     * \brief Allocate matrix structure give a sparsity pattern.
+     */
     template <class Set>
     inline void reserve( const std::vector< Set >& sparsityPattern )
     {
         // allocate raw matrix
-        matrix_.reset( new MatrixType(rows_, columns_, MatrixType::random) );
+        matrix_.reset( new Matrix(rows_, columns_, Matrix::random) );
 
         // make sure sparsityPattern is consistent with number of rows
         assert( rows_ == sparsityPattern.size() );
@@ -98,18 +109,33 @@ public:
         matrix_->endindices();
     }
 
-    inline MatrixType& matrix() { return *matrix_; }
-    inline const MatrixType& matrix() const { return *matrix_; }
+    /*!
+     * \brief Return constant reference to matrix implementation.
+     */
+    inline Matrix& matrix() { return *matrix_; }
+    inline const Matrix& matrix() const { return *matrix_; }
 
+    /*!
+     * \brief Return number of rows of the matrix.
+     */
     inline size_t rows () const { return rows_; }
+
+    /*!
+     * \brief Return number of columns of the matrix.
+     */
     inline size_t cols () const { return columns_; }
 
-    // set all matrix entries to zero
+    /*!
+     * \brief Set all matrix entries to zero.
+     */
     inline void clear()
     {
         (*matrix_) = typename block_type :: field_type(0);
     }
 
+    /*!
+     * \brief Set given row to zero except for the diagonal entry which is set to one.
+     */
     inline void unitRow( const size_t row )
     {
         block_type idBlock( 0 );
@@ -128,21 +154,33 @@ public:
         }
     }
 
+    /*!
+     * \brief Fill given block with entries stored in the matrix.
+     */
     inline void getBlock( const size_t row, const size_t col, block_type& entry ) const
     {
         entry = (*matrix_)[ row ][ col ];
     }
 
+    /*!
+     * \brief Set matrix block to given block.
+     */
     inline void setBlock( const size_t row, const size_t col, const block_type& entry )
     {
         (*matrix_)[ row ][ col ] = entry;
     }
 
+    /*!
+     * \brief Add block to matrix block.
+     */
     inline void addBlock( const size_t row, const size_t col, const block_type& entry )
     {
         (*matrix_)[ row ][ col ] += entry;
     }
 
+    /*!
+     * \brief Synchronize matrix and finalize building stage.
+     */
     inline void communicate()
     {
         // nothing to do here
@@ -153,7 +191,7 @@ protected:
     size_t rows_;
     size_t columns_;
 
-    std::unique_ptr< MatrixType > matrix_;
+    std::unique_ptr< Matrix > matrix_;
 };
 
 } // namespace Linear
