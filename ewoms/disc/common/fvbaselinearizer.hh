@@ -41,10 +41,6 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 
-#if HAVE_DUNE_FEM
-#include <dune/fem/operator/common/stencil.hh>
-#endif
-
 #include <type_traits>
 #include <iostream>
 #include <vector>
@@ -99,13 +95,13 @@ class FvBaseLinearizer
 
     typedef GlobalEqVector Vector;
 
-    typedef JacobianMatrix Matrix;
+    typedef typename JacobianMatrix :: MatrixType   Matrix;
 
     enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
     enum { historySize = GET_PROP_VALUE(TypeTag, TimeDiscHistorySize) };
 
-    typedef Dune::FieldMatrix<Scalar, numEq, numEq> MatrixBlock;
-    typedef Dune::FieldVector<Scalar, numEq> VectorBlock;
+    typedef typename JacobianMatrix :: block_type   MatrixBlock;
+    typedef Dune::FieldVector<Scalar, numEq>        VectorBlock;
 
     static const bool linearizeNonLocalElements = GET_PROP_VALUE(TypeTag, LinearizeNonLocalElements);
 
@@ -116,7 +112,7 @@ class FvBaseLinearizer
 public:
     FvBaseLinearizer(const DiscreteFunctionSpace& space)
          : space_( space ),
-           matrix_()
+           jacobian_()
     {
         simulatorPtr_ = 0;
     }
@@ -159,7 +155,7 @@ public:
      */
     void eraseMatrix()
     {
-        matrix_.reset();
+        jacobian_.reset();
     }
 
     /*!
@@ -188,7 +184,7 @@ public:
         // we defer the initialization of the Jacobian matrix until here because the
         // auxiliary modules usually assume the problem, model and grid to be fully
         // initialized...
-        if (!matrix_)
+        if (!jacobian_)
             initFirstIteration_();
 
         int succeeded;
@@ -227,7 +223,7 @@ public:
 
     void finalize()
     {
-        matrix_->communicate();
+        jacobian_->communicate();
     }
 
     /*!
@@ -241,7 +237,7 @@ public:
         for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx) {
             bool succeeded = true;
             try {
-                model.auxiliaryModule(auxModIdx)->linearize(*matrix_, residual_);
+                model.auxiliaryModule(auxModIdx)->linearize(*jacobian_, residual_);
             }
             catch (const std::exception& e) {
                 succeeded = false;
@@ -269,14 +265,22 @@ public:
     }
 
     /*!
-     * \brief Return constant reference to global Jacobian matrix.
+     * \brief Return constant reference to global Jacobian matrix implementation (deprecated).
      */
-
     const Matrix& matrix() const
-    { return *matrix_; }
+    { return jacobian_->matrix(); }
 
     Matrix& matrix()
-    { return *matrix_; }
+    { return jacobian_->matrix(); }
+
+    /*!
+     * \brief Return constant reference to global Jacobian matrix backend.
+     */
+    const JacobianMatrix& jacobian() const
+    { return *jacobian_; }
+
+    JacobianMatrix& jacobian()
+    { return *jacobian_; }
 
     /*!
      * \brief Return constant reference to global residual vector.
@@ -326,7 +330,6 @@ private:
         createMatrix_();
 
         // initialize the Jacobian matrix and the vector for the residual function
-        // (*matrix_) = 0.0;
         residual_.resize(model_().numTotalDof());
         resetSystem_();
 
@@ -340,9 +343,6 @@ private:
     void createMatrix_()
     {
         const auto& model = model_();
-        //DiagonalAndNeighborPlusAuxStencil< DiscreteFunctionSpace,DiscreteFunctionSpace > stencil( space_, space_ );
-        //stencil.addAuxiliaryStencil( model );
-        //matrix_->reserve(stencil);
         Stencil stencil(gridView_(), model_().dofMapper() );
 
         // for the main model, find out the global indices of the neighboring degrees of
@@ -373,10 +373,10 @@ private:
             model.auxiliaryModule(auxModIdx)->addNeighbors( sparsityPattern );
 
         // allocate raw matrix
-        matrix_.reset( new Matrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
+        jacobian_.reset( new JacobianMatrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
 
         // create matrix structure based on sparsity pattern
-        matrix_->reserve( sparsityPattern );
+        jacobian_->reserve( sparsityPattern );
     }
 
     // reset the global linear system of equations.
@@ -384,7 +384,7 @@ private:
     {
         residual_ = 0.0;
         // zero all matrix entries
-        matrix_->clear();
+        jacobian_->clear();
     }
 
     // query the problem for all constraint degrees of freedom. note that this method is
@@ -505,7 +505,7 @@ private:
             for (unsigned dofIdx = 0; dofIdx < elementCtx->numDof(/*timeIdx=*/0); ++ dofIdx) {
                 unsigned globJ = elementCtx->globalSpaceIndex(/*spaceIdx=*/dofIdx, /*timeIdx=*/0);
 
-                matrix_->addBlock( globJ, globI, localLinearizer.jacobian(dofIdx, primaryDofIdx) );
+                jacobian_->addBlock( globJ, globI, localLinearizer.jacobian(dofIdx, primaryDofIdx) );
             }
         }
 
@@ -546,7 +546,7 @@ private:
 
             // reset the column of the Jacobian matrix
             // put an identity matrix on the main diagonal of the Jacobian
-            matrix_->unitRow( constraintDofIdx );
+            jacobian_->unitRow( constraintDofIdx );
 
             // make the right-hand side of constraint DOFs zero
             residual_[constraintDofIdx] = 0.0;
@@ -566,7 +566,7 @@ private:
     std::map<unsigned, Constraints> constraintsMap_;
 
     // the jacobian matrix
-    std::unique_ptr< JacobianMatrix > matrix_;
+    std::unique_ptr< JacobianMatrix > jacobian_;
 
     // the right-hand side
     GlobalEqVector residual_;
