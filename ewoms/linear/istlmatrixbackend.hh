@@ -38,7 +38,7 @@ namespace Linear {
 
 /*!
  * \ingroup Linear
- * \brief A linear solver backend for the SuperLU sparse matrix library.
+ * \brief A backend for BCRSMatrix from dune-istl.
  */
 template<class Block, class A=std::allocator< Block > >
 class ISTLMatrixBackend

@@ -181,6 +181,7 @@ public:
 
         // set ilu preconditioner istl
         Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
+        Dune::Fem::Parameter::append("istl.preconditioning.relaxation", "0.9" );
         Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
         Dune::Fem::Parameter::append("fem.solver.errormeasure", "relative" );
 

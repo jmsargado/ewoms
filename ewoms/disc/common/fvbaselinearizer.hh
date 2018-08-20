@@ -56,51 +56,6 @@ namespace Ewoms {
 template<class TypeTag>
 class EcfvDiscretization;
 
-
-#if USE_DUNE_FEM_SOLVERS
-
-template <class DomainSpace, class RangeSpace>
-struct DiagonalAndNeighborPlusAuxStencil
-: public Dune::Fem::DiagonalAndNeighborStencil< DomainSpace, RangeSpace >
-{
-    typedef Dune::Fem::DiagonalAndNeighborStencil< DomainSpace, RangeSpace > ParentType;
-protected:
-    using ParentType :: globalStencil_;
-
-public:
-    DiagonalAndNeighborPlusAuxStencil( const DomainSpace &dSpace, const RangeSpace &rSpace )
-        : ParentType( dSpace, rSpace )
-    {
-    }
-
-    template <class Model>
-    void addAuxiliaryStencil( const Model& model )
-    {
-        const size_t numAllDof = model.numTotalDof();
-
-        // for the main model, find out the global indices of the neighboring degrees of
-        // freedom of each primary degree of freedom
-        typedef std::set<unsigned> NeighborSet;
-        std::vector<NeighborSet> neighbors(numAllDof);
-
-        size_t numAuxMod = model.numAuxiliaryModules();
-        for (unsigned auxModIdx = 0; auxModIdx < numAuxMod; ++auxModIdx)
-            model.auxiliaryModule(auxModIdx)->addNeighbors( neighbors );
-
-        for( size_t i=0; i<numAllDof; ++i )
-        {
-            if( neighbors[ i ].empty() ) continue ;
-
-            auto& sten = globalStencil_[ i ];
-            for( const auto& idx : neighbors[ i ] )
-                sten.insert( idx );
-        }
-    }
-
-};
-
-#endif
-
 /*!
  * \ingroup FiniteVolumeDiscretizations
  *
