@@ -95,7 +95,7 @@ class FvBaseLinearizer
 
     typedef GlobalEqVector Vector;
 
-    typedef typename JacobianMatrix :: MatrixType   Matrix;
+    typedef typename JacobianMatrix :: Matrix       Matrix;
 
     enum { numEq = GET_PROP_VALUE(TypeTag, NumEq) };
     enum { historySize = GET_PROP_VALUE(TypeTag, TimeDiscHistorySize) };
