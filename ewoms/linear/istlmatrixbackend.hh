@@ -52,27 +52,19 @@ public:
     /*!
      * \brief Constructor creating an empty matrix.
      */
-    ISTLMatrixBackend( const std::string& name, const size_t rows, const size_t columns )
+    ISTLMatrixBackend( const size_t rows, const size_t columns )
         : rows_( rows )
         , columns_( columns )
         , matrix_()
     {}
 
     /*!
-     * \brief Constructor creating an empty matrix.
+     * \brief Constructor taking simulator and creating an empty matrix .
      */
-    explicit ISTLMatrixBackend( const std::string& name, const int rows, const int columns )
-        : ISTLMatrixBackend( name, size_t(rows), size_t(columns) )
+    template < class Simulator >
+    ISTLMatrixBackend( const Simulator& simulator )
+        : ISTLMatrixBackend( simulator.model().numTotalDof(), simulator.model().numTotalDof() )
     {}
-
-    /*!
-     * \brief Constructor creating an empty matrix.
-     */
-    template <class DomainSpace, class RangeSpace>
-    ISTLMatrixBackend( const std::string& name, const DomainSpace& domainSpace, const RangeSpace& rangeSpace )
-        : ISTLMatrixBackend( name, domainSpace.size()/DomainSpace::dimRange, rangeSpace.size()/RangeSpace::dimRange )
-    {
-    }
 
     /*!
      * \brief Allocate matrix structure give a sparsity pattern.
@@ -150,7 +142,7 @@ public:
             if( colIt.index() == row )
                 *colIt = idBlock;
             else
-                *colIt = 0.0;
+                *colIt = typename block_type :: field_type(0);
         }
     }
 

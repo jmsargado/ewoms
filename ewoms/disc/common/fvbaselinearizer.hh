@@ -52,6 +52,7 @@ namespace Ewoms {
 template<class TypeTag>
 class EcfvDiscretization;
 
+
 /*!
  * \ingroup FiniteVolumeDiscretizations
  *
@@ -373,7 +374,7 @@ private:
             model.auxiliaryModule(auxModIdx)->addNeighbors( sparsityPattern );
 
         // allocate raw matrix
-        jacobian_.reset( new JacobianMatrix( "FvBaseLinearizer::jacobian", space_, space_ ) );
+        jacobian_.reset( new JacobianMatrix( simulator_() ) );
 
         // create matrix structure based on sparsity pattern
         jacobian_->reserve( sparsityPattern );

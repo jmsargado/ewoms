@@ -348,12 +348,11 @@ public:
         unsigned wellGlobalDofIdx = AuxModule::localToGlobalDof(/*localDofIdx=*/0);
         residual[wellGlobalDofIdx] = 0.0;
 
-        MatrixBlock diagBlock;// = matrix[wellGlobalDofIdx][wellGlobalDofIdx];
-        diagBlock = 0.0;
+        MatrixBlock diagBlock( 0.0 );
         for (unsigned i = 0; i < numModelEq; ++ i)
             diagBlock[i][i] = 1.0;
 
-        MatrixBlock block;
+        MatrixBlock block( 0.0 );
 
         if (wellStatus() == Shut) {
             // if the well is shut, make the auxiliary DOFs a trivial equation in the
@@ -362,7 +361,6 @@ public:
             auto wellDofIt = dofVariables_.begin();
             const auto& wellDofEndIt = dofVariables_.end();
 
-            block = 0.0;
             for (; wellDofIt != wellDofEndIt; ++ wellDofIt) {
                 matrix.setBlock( wellGlobalDofIdx, wellDofIt->first, block );
                 matrix.setBlock( wellDofIt->first, wellGlobalDofIdx, block );
@@ -395,9 +393,8 @@ public:
 
             /////////////
             // influence of grid on well
-            //auto& block = matrix[wellGlobalDofIdx][gridDofIdx];
-
             elemCtx.updateStencil( dofVars.element );
+            // reset block from previous values
             block = 0.0;
             for (unsigned priVarIdx = 0; priVarIdx < numModelEq; ++priVarIdx) {
                 // calculate the derivative of the well equation w.r.t. the current
@@ -470,8 +467,6 @@ public:
             // the black-oil model for now anyway, so this should not be too much of a
             // problem...
             Opm::Valgrind::CheckDefined(q);
-            //auto& matrixEntry = matrix[gridDofIdx][wellGlobalDofIdx];
-            //matrixEntry = 0.0;
             block = 0.0;
             for (unsigned eqIdx = 0; eqIdx < numModelEq; ++ eqIdx)
                 block[eqIdx][0] = - Toolbox::value(q[eqIdx])/dofVars.totalVolume;

@@ -150,7 +150,7 @@ protected:
     };
 
     // select solver type depending on linear operator type
-    typedef typename SolverSelector<0, LinearOperator > :: type   InverseLinearOperator;
+    typedef typename SolverSelector<0, typename LinearOperator::ParentType > :: type   InverseLinearOperator;
 
     enum { dimWorld = GridView::dimensionworld };
 

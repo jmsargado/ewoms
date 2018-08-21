@@ -153,18 +153,26 @@ SET_PROP(FvBaseDiscretization, JacobianMatrix)
 {
 private:
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
-    typedef typename GET_PROP_TYPE(TypeTag, PrimaryVariables)      PrimaryVariables;
     // discrete function storing solution data
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace> DiscreteFunction;
-public:
 
 #if USE_DUNE_FEM_PETSC_SOLVERS
-    typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > LinearOperator;
 #else
-    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction >  LinearOperator;
 #endif
 
-    //typedef Dune::Fem::SparseRowLinearOperator< DiscreteFunction, DiscreteFunction > type;
+    struct FemMatrixBackend : public LinearOperator
+    {
+        typedef LinearOperator  ParentType;
+        typedef typename LinearOperator :: MatrixType    Matrix;
+        template <class Simulator>
+        FemMatrixBackend( const Simulator& simulator )
+            : LinearOperator("FV::Jacobian", simulator.model().space(), simulator.model().space() )
+        {}
+    };
+public:
+    typedef FemMatrixBackend type;
 };
 #else
 //! Set the type of a global jacobian matrix from the solution types
