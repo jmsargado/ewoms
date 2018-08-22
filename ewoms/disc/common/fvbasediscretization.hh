@@ -153,13 +153,14 @@ SET_PROP(FvBaseDiscretization, JacobianMatrix)
 {
 private:
     typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
+    typedef typename GET_PROP_TYPE(TypeTag, Scalar)                Scalar;
     // discrete function storing solution data
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction<DiscreteFunctionSpace> DiscreteFunction;
 
 #if USE_DUNE_FEM_PETSC_SOLVERS
     typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > LinearOperator;
 #else
-    typedef Dune::Fem::ISTLLinearOperator< DiscreteFunction, DiscreteFunction >  LinearOperator;
+    typedef Dune::Fem::ISTLLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #endif
 
     struct FemMatrixBackend : public LinearOperator
@@ -168,8 +169,12 @@ private:
         typedef typename LinearOperator :: MatrixType    Matrix;
         template <class Simulator>
         FemMatrixBackend( const Simulator& simulator )
-            : LinearOperator("FV::Jacobian", simulator.model().space(), simulator.model().space() )
+            : LinearOperator("eWoms::Jacobian", simulator.model().space(), simulator.model().space() )
         {}
+
+        // adjust to ewoms matrixbackend interface
+        void finalize() { this->communicate(); }
+        void clearRow( const size_t row, const Scalar diag = 1.0 ) { this->unitRow( row ); }
     };
 public:
     typedef FemMatrixBackend type;

@@ -224,7 +224,7 @@ public:
 
     void finalize()
     {
-        jacobian_->communicate();
+        jacobian_->finalize();
     }
 
     /*!
@@ -547,7 +547,7 @@ private:
 
             // reset the column of the Jacobian matrix
             // put an identity matrix on the main diagonal of the Jacobian
-            jacobian_->unitRow( constraintDofIdx );
+            jacobian_->clearRow( constraintDofIdx, Scalar(1) );
 
             // make the right-hand side of constraint DOFs zero
             residual_[constraintDofIdx] = 0.0;
