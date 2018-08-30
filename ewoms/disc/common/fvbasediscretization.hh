@@ -1856,7 +1856,7 @@ public:
     { return updateTimer_; }
 
 #if HAVE_DUNE_FEM
-    const DiscreteFunctionSpace& space() const { return space_; }
+    const DiscreteFunctionSpace& space() const { return discreteFunctionSpace_; }
 #endif
 
 
