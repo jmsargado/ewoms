@@ -147,7 +147,7 @@ protected:
     typedef typename GET_PROP_TYPE(TypeTag, Simulator) Simulator;
     typedef typename GET_PROP_TYPE(TypeTag, Scalar) Scalar;
     typedef typename GET_PROP_TYPE(TypeTag, LinearSolverScalar) LinearSolverScalar;
-    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) Matrix;
+    typedef typename GET_PROP_TYPE(TypeTag, JacobianMatrix) JacobianMatrix;
     typedef typename GET_PROP_TYPE(TypeTag, GlobalEqVector) Vector;
     typedef typename GET_PROP_TYPE(TypeTag, BorderListCreator) BorderListCreator;
     typedef typename GET_PROP_TYPE(TypeTag, GridView) GridView;
@@ -207,7 +207,7 @@ public:
     void eraseMatrix()
     { cleanup_(); }
 
-    void prepareMatrix(const Matrix& M)
+    void prepareMatrix(const JacobianMatrix& M)
     {
         // make sure that the overlapping matrix and block vectors
         // have been created
@@ -225,7 +225,7 @@ public:
         overlappingb_->sync();
     }
 
-    void prepareRhs(const Matrix& M, Vector& b)
+    void prepareRhs(const JacobianMatrix& M, Vector& b)
     {
         // make sure that the overlapping matrix and block vectors
         // have been created
@@ -304,7 +304,7 @@ protected:
 
     size_t iterations_() const { return lastIterations_; }
 
-    void prepare_(const Matrix& M)
+    void prepare_(const JacobianMatrix& M)
     {
         // if grid has changed the sequence number has changed too
         int curSeqNum = simulator_.vanguard().gridSequenceNumber();

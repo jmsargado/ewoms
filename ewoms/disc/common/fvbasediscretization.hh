@@ -180,7 +180,7 @@ public:
     typedef FemMatrixBackend type;
 };
 #else
-//! Set the type of a global jacobian matrix from the solution types
+//! Set the type of a global Jacobian matrix from the solution types
 SET_PROP(FvBaseDiscretization, JacobianMatrix)
 {
 private:
@@ -264,7 +264,7 @@ SET_TYPE_PROP(FvBaseDiscretization, ConstraintsContext, Ewoms::FvBaseConstraints
  * \brief The OpenMP threads manager
  */
 SET_TYPE_PROP(FvBaseDiscretization, ThreadManager, Ewoms::ThreadManager<TypeTag>);
-SET_INT_PROP(FvBaseDiscretization, ThreadsPerProcess, 1);
+SET_INT_PROP(FvBaseDiscretization, ThreadsPerProcess, -1);
 SET_BOOL_PROP(FvBaseDiscretization, UseLinearizationLock, true);
 
 /*!
@@ -280,6 +280,9 @@ SET_SCALAR_PROP(FvBaseDiscretization, MinTimeStepSize, 0.0);
 
 //! Disable grid adaptation by default
 SET_BOOL_PROP(FvBaseDiscretization, EnableGridAdaptation, false);
+
+//! By default, write the simulation output to the current working directory
+SET_STRING_PROP(FvBaseDiscretization, OutputDir, ".");
 
 //! Enable the VTK output by default
 SET_BOOL_PROP(FvBaseDiscretization, EnableVtkOutput, true);
@@ -437,13 +440,13 @@ public:
         , vertexMapper_(gridView_)
 #endif
 #if HAVE_DUNE_FEM
-        , space_( simulator.vanguard().gridPart() )
+        , discreteFunctionSpace_( simulator.vanguard().gridPart() )
 #else
-        , space_( asImp_().numGridDof() )
+        , discreteFunctionSpace_( asImp_().numGridDof() )
 #endif
         , newtonMethod_(simulator)
         , localLinearizer_(ThreadManager::maxThreads())
-        , linearizer_(new Linearizer(space_))
+        , linearizer_(new Linearizer( ))
         , enableGridAdaptation_( EWOMS_GET_PARAM(TypeTag, bool, EnableGridAdaptation) )
         , enableIntensiveQuantityCache_(EWOMS_GET_PARAM(TypeTag, bool, EnableIntensiveQuantityCache))
         , enableStorageCache_(EWOMS_GET_PARAM(TypeTag, bool, EnableStorageCache))
@@ -468,7 +471,7 @@ public:
 
         size_t numDof = asImp_().numGridDof();
         for (unsigned timeIdx = 0; timeIdx < historySize; ++timeIdx) {
-            solution_[timeIdx].reset(new DiscreteFunction("solution", space_));
+            solution_[timeIdx].reset(new DiscreteFunction("solution", discreteFunctionSpace_));
 
             if (storeIntensiveQuantities()) {
                 intensiveQuantityCache_[timeIdx].resize(numDof);
@@ -515,6 +518,7 @@ public:
         EWOMS_REGISTER_PARAM(TypeTag, bool, EnableThermodynamicHints, "Enable thermodynamic hints");
         EWOMS_REGISTER_PARAM(TypeTag, bool, EnableIntensiveQuantityCache, "Turn on caching of intensive quantities");
         EWOMS_REGISTER_PARAM(TypeTag, bool, EnableStorageCache, "Store previous storage terms and avoid re-calculating them.");
+        EWOMS_REGISTER_PARAM(TypeTag, std::string, OutputDir, "The directory to which result files are written");
     }
 
     /*!
@@ -585,6 +589,8 @@ public:
             for (unsigned timeIdx = 0; timeIdx < historySize; ++ timeIdx)
                 invalidateIntensiveQuantitiesCache(timeIdx);
         }
+
+        newtonMethod_.finishInit();
     }
 
     /*!
@@ -1547,7 +1553,7 @@ public:
     void resetLinearizer ()
     {
         delete linearizer_;
-        linearizer_ = new Linearizer( space_ );
+        linearizer_ = new Linearizer();
         linearizer_->init(simulator_);
     }
 
@@ -1782,7 +1788,7 @@ public:
 
         auxMod->applyInitial();
 
-        space_.extendSize( asImp_().numAuxiliaryDof() );
+        discreteFunctionSpace_.extendSize( asImp_().numAuxiliaryDof() );
     }
 
     /*!
@@ -1924,10 +1930,11 @@ protected:
     ElementMapper elementMapper_;
     VertexMapper vertexMapper_;
 
+    DiscreteFunctionSpace discreteFunctionSpace_;
+
     // a vector with all auxiliary equations to be considered
     std::vector<BaseAuxiliaryModule<TypeTag>*> auxEqModules_;
 
-    DiscreteFunctionSpace space_;
     mutable std::array< std::unique_ptr< DiscreteFunction >, historySize > solution_;
 
 #if HAVE_DUNE_FEM
@@ -1952,7 +1959,6 @@ protected:
     // solution of the previous time step
     mutable IntensiveQuantitiesVector intensiveQuantityCache_[historySize];
     mutable std::vector<bool> intensiveQuantityCacheUpToDate_[historySize];
-
 
     std::list<BaseOutputModule<TypeTag>*> outputModules_;
 
