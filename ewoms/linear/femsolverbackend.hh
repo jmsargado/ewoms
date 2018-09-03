@@ -135,7 +135,8 @@ protected:
         typedef Dune::Fem::KrylovInverseOperator< DiscreteFunction >  type;
     };
 
-#if HAVE_PETSC
+//#if HAVE_PETSC
+#if ENABLE_DUNE_FEM_PETSC_SOLVERS
     template <int d>
     struct SolverSelector< d, Dune::Fem::PetscLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
     {
