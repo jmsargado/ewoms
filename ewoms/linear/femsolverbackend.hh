@@ -220,10 +220,10 @@ public:
         // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
         Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
 
-        int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
-        if( verbosity )
-            Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
-        else
+        //int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
+        //if( verbosity )
+        //    Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
+        //else
             Dune::Fem::Parameter::append("fem.solver.verbose", "false" );
     }
 
