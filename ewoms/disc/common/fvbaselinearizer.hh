@@ -85,8 +85,6 @@ class FvBaseLinearizer
     typedef typename GET_PROP_TYPE(TypeTag, Stencil) Stencil;
     typedef typename GET_PROP_TYPE(TypeTag, ThreadManager) ThreadManager;
 
-    typedef typename GET_PROP_TYPE(TypeTag, DiscreteFunctionSpace) DiscreteFunctionSpace;
-
     typedef typename GET_PROP_TYPE(TypeTag, GridCommHandleFactory) GridCommHandleFactory;
 
     typedef Opm::MathToolbox<Evaluation> Toolbox;
@@ -111,9 +109,8 @@ class FvBaseLinearizer
 //! \endcond
 
 public:
-    FvBaseLinearizer(const DiscreteFunctionSpace& space)
-         : space_( space ),
-           jacobian_()
+    FvBaseLinearizer()
+        : jacobian_()
     {
         simulatorPtr_ = 0;
     }
@@ -556,8 +553,6 @@ private:
 
     static bool enableConstraints_()
     { return GET_PROP_VALUE(TypeTag, EnableConstraints); }
-
-    const DiscreteFunctionSpace& space_;
 
     Simulator *simulatorPtr_;
     std::vector<ElementContext*> elementCtx_;

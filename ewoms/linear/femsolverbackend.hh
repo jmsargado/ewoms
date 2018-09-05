@@ -70,12 +70,30 @@ SET_TYPE_PROP(FemSolverBackend,
 //NEW_PROP_TAG(LinearSolverTolerance);
 NEW_PROP_TAG(LinearSolverMaxIterations);
 NEW_PROP_TAG(LinearSolverVerbosity);
+NEW_PROP_TAG(LinearSolverMaxError);
+NEW_PROP_TAG(LinearSolverOverlapSize);
+//! The order of the sequential preconditioner
+NEW_PROP_TAG(PreconditionerOrder);
+
+//! The relaxation factor of the preconditioner
+NEW_PROP_TAG(PreconditionerRelaxation);
 
 //! make the linear solver shut up by default
 SET_INT_PROP(FemSolverBackend, LinearSolverVerbosity, 0);
 
 //! set the default number of maximum iterations for the linear solver
 SET_INT_PROP(FemSolverBackend, LinearSolverMaxIterations, 1000);
+
+SET_SCALAR_PROP(FemSolverBackend, LinearSolverMaxError, 1e7);
+
+//! set the default overlap size to 2
+SET_INT_PROP(FemSolverBackend, LinearSolverOverlapSize, 2);
+
+//! set the preconditioner order to 0 by default
+SET_INT_PROP(FemSolverBackend, PreconditionerOrder, 0);
+
+//! set the preconditioner relaxation parameter to 1.0 by default
+SET_SCALAR_PROP(FemSolverBackend, PreconditionerRelaxation, 1.0);
 
 //! make the linear solver shut up by default
 //SET_SCALAR_PROP(FemSolverBackend, LinearSolverTolerance, 0.01);
@@ -177,6 +195,18 @@ public:
                              "The maximum number of iterations of the linear solver");
         EWOMS_REGISTER_PARAM(TypeTag, int, LinearSolverVerbosity,
                              "The verbosity level of the linear solver");
+        EWOMS_REGISTER_PARAM(TypeTag, unsigned, LinearSolverOverlapSize,
+                             "The size of the algebraic overlap for the linear solver");
+
+        EWOMS_REGISTER_PARAM(TypeTag, Scalar, LinearSolverMaxError,
+                             "The maximum residual error which the linear solver tolerates"
+                             " without giving up");
+
+        EWOMS_REGISTER_PARAM(TypeTag, int, PreconditionerOrder,
+                             "The order of the preconditioner");
+        EWOMS_REGISTER_PARAM(TypeTag, Scalar, PreconditionerRelaxation,
+                             "The relaxation factor of the preconditioner");
+
 
         //PreconditionerWrapper::registerParameters();
 
@@ -184,14 +214,18 @@ public:
         Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
         Dune::Fem::Parameter::append("istl.preconditioning.relaxation", "0.9" );
         Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
-        Dune::Fem::Parameter::append("fem.solver.errormeasure", "relative" );
+        Dune::Fem::Parameter::append("fem.solver.errormeasure", "residualreduction" );
 
         // possible solvers: cg, bicg, bicgstab, gmres
         Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
         // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
         Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
 
-        //Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
+        int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
+        if( verbosity )
+            Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
+        else
+            Dune::Fem::Parameter::append("fem.solver.verbose", "false" );
     }
 
     /*!
@@ -204,7 +238,7 @@ public:
     void prepareMatrix(const LinearOperator& op)
     {
         Scalar linearSolverTolerance = EWOMS_GET_PARAM(TypeTag, Scalar, LinearSolverTolerance);
-        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 10.0;
+        Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
 
         // reset linear solver
         invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
