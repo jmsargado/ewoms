@@ -153,8 +153,7 @@ protected:
         typedef Dune::Fem::KrylovInverseOperator< DiscreteFunction >  type;
     };
 
-//#if HAVE_PETSC
-#if ENABLE_DUNE_FEM_PETSC_SOLVERS
+#if HAVE_PETSC
     template <int d>
     struct SolverSelector< d, Dune::Fem::PetscLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
     {
@@ -221,7 +220,8 @@ public:
         // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
         Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
 
-        int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
+        //int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
+        int verbosity = false;
         if( verbosity )
             Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
         else
