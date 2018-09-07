@@ -39,6 +39,7 @@
 #include <ewoms/linear/parallelbicgstabbackend.hh>
 #include <ewoms/linear/parallelistlbackend.hh>
 #include <ewoms/linear/femsolverbackend.hh>
+#include <ewoms/linear/amgxsolverbackend.hh>
 
 BEGIN_PROPERTIES
 
@@ -61,7 +62,9 @@ NEW_PROP_TAG(DiscreteFunctionSpace);
 SET_SPLICES(FvBaseDiscretization, LinearSolverSplice, LocalLinearizerSplice);
 
 //! use a parallel BiCGStab linear solver by default
-#if USE_DUNE_FEM_SOLVERS
+#if USE_AMGX_SOLVERS
+SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, AmgXSolverBackend);
+#elif USE_DUNE_FEM_SOLVERS
 SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, FemSolverBackend);
 #else
 SET_TAG_PROP(FvBaseDiscretization, LinearSolverSplice, ParallelBiCGStabLinearSolver);
