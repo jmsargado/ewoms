@@ -78,6 +78,9 @@ NEW_PROP_TAG(PreconditionerOrder);
 //! The relaxation factor of the preconditioner
 NEW_PROP_TAG(PreconditionerRelaxation);
 
+//! Filename for DUNE-FEM solver parameters
+NEW_PROP_TAG(FemSolverParameterFileName);
+
 //! make the linear solver shut up by default
 SET_INT_PROP(FemSolverBackend, LinearSolverVerbosity, 0);
 
@@ -94,6 +97,9 @@ SET_INT_PROP(FemSolverBackend, PreconditionerOrder, 0);
 
 //! set the preconditioner relaxation parameter to 1.0 by default
 SET_SCALAR_PROP(FemSolverBackend, PreconditionerRelaxation, 1.0);
+
+//! set the preconditioner relaxation parameter to 1.0 by default
+SET_STRING_PROP(FemSolverBackend, FemSolverParameterFileName, "");
 
 //! make the linear solver shut up by default
 //SET_SCALAR_PROP(FemSolverBackend, LinearSolverTolerance, 0.01);
@@ -178,6 +184,11 @@ public:
         , invOp_()
         , rhs_( nullptr )
     {
+        std::string paramFileName = EWOMS_GET_PARAM(TypeTag, std::string, FemSolverParameterFileName);
+        if( paramFileName != "" )
+        {
+            Dune::Fem::Parameter::append( paramFileName );
+        }
     }
 
     ~FemSolverBackend()
@@ -206,25 +217,9 @@ public:
         EWOMS_REGISTER_PARAM(TypeTag, Scalar, PreconditionerRelaxation,
                              "The relaxation factor of the preconditioner");
 
+        EWOMS_REGISTER_PARAM(TypeTag, std::string, FemSolverParameterFileName,
+                             "The name of the file which contains the parameters for the DUNE-FEM solvers");
 
-        //PreconditionerWrapper::registerParameters();
-
-        // set ilu preconditioner istl
-        Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
-        Dune::Fem::Parameter::append("istl.preconditioning.relaxation", "0.9" );
-        Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
-        Dune::Fem::Parameter::append("fem.solver.errormeasure", "residualreduction" );
-
-        // possible solvers: cg, bicg, bicgstab, gmres
-        Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
-        // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
-        Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
-
-        //int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
-        //if( verbosity )
-        //    Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
-        //else
-            Dune::Fem::Parameter::append("fem.solver.verbose", "false" );
     }
 
     /*!
