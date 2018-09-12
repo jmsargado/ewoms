@@ -31,8 +31,8 @@
 
 #if USE_AMGX_SOLVERS
 
-#if ! HAVE_PETSC
-#error "PETSc is needed for the AMGX solver backend"
+#if ! HAVE_PETSC && ! HAVE_AMGXSOLVER
+#error "PETSc and AmgXSolver is needed for the AMGX solver backend"
 #endif
 
 #define DISABLE_AMG_DIRECTSOLVER 1
