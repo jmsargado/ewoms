@@ -143,6 +143,11 @@ EwomsAddApplication(ebos_fempetsc
                     EXE_NAME ebos_fempetsc
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
 
+EwomsAddApplication(ebos_amgxpetsc
+                    SOURCES ebos/ebos_amgxpetsc.cc
+                    EXE_NAME ebos_amgxpetsc
+                    CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+
 if(OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
   install(TARGETS ebos DESTINATION bin)
 endif()
