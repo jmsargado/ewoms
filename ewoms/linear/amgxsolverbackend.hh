@@ -22,20 +22,24 @@
 */
 /*!
  * \file
- * \copydoc Ewoms::Linear::FemSolverBackend
+ * \copydoc Ewoms::Linear::AmgXSolverBackend
  */
-#ifndef EWOMS_FEM_SOLVER_BACKEND_HH
-#define EWOMS_FEM_SOLVER_BACKEND_HH
+#ifndef EWOMS_AMGX_SOLVER_BACKEND_HH
+#define EWOMS_AMGX_SOLVER_BACKEND_HH
 
 #include <ewoms/disc/common/fvbaseproperties.hh>
 
-#if USE_DUNE_FEM_SOLVERS
+#if USE_AMGX_SOLVERS
+
+#if ! HAVE_PETSC && ! HAVE_AMGXSOLVER
+#error "PETSc and AmgXSolver is needed for the AMGX solver backend"
+#endif
 
 #define DISABLE_AMG_DIRECTSOLVER 1
 #include <dune/fem/solver/istlsolver.hh>
 #include <dune/fem/solver/petscsolver.hh>
 #include <dune/fem/solver/krylovinverseoperators.hh>
-
+#include <dune/fem/function/petscdiscretefunction.hh>
 #include <ewoms/common/genericguard.hh>
 #include <ewoms/common/propertysystem.hh>
 #include <ewoms/common/parametersystem.hh>
@@ -55,17 +59,17 @@
 namespace Ewoms {
 namespace Linear {
 template <class TypeTag>
-class FemSolverBackend;
+class AmgXSolverBackend;
 }} // namespace Linear, Ewoms
 
 
 BEGIN_PROPERTIES
 
-NEW_TYPE_TAG(FemSolverBackend);
+NEW_TYPE_TAG(AmgXSolverBackend);
 
-SET_TYPE_PROP(FemSolverBackend,
+SET_TYPE_PROP(AmgXSolverBackend,
               LinearSolverBackend,
-              Ewoms::Linear::FemSolverBackend<TypeTag>);
+              Ewoms::Linear::AmgXSolverBackend<TypeTag>);
 
 //NEW_PROP_TAG(LinearSolverTolerance);
 NEW_PROP_TAG(LinearSolverMaxIterations);
@@ -78,31 +82,25 @@ NEW_PROP_TAG(PreconditionerOrder);
 //! The relaxation factor of the preconditioner
 NEW_PROP_TAG(PreconditionerRelaxation);
 
-//! Filename for DUNE-FEM solver parameters
-NEW_PROP_TAG(FemSolverParameterFileName);
-
 //! make the linear solver shut up by default
-SET_INT_PROP(FemSolverBackend, LinearSolverVerbosity, 0);
+SET_INT_PROP(AmgXSolverBackend, LinearSolverVerbosity, 0);
 
 //! set the default number of maximum iterations for the linear solver
-SET_INT_PROP(FemSolverBackend, LinearSolverMaxIterations, 1000);
+SET_INT_PROP(AmgXSolverBackend, LinearSolverMaxIterations, 1000);
 
-SET_SCALAR_PROP(FemSolverBackend, LinearSolverMaxError, 1e7);
+SET_SCALAR_PROP(AmgXSolverBackend, LinearSolverMaxError, 1e7);
 
 //! set the default overlap size to 2
-SET_INT_PROP(FemSolverBackend, LinearSolverOverlapSize, 2);
+SET_INT_PROP(AmgXSolverBackend, LinearSolverOverlapSize, 2);
 
 //! set the preconditioner order to 0 by default
-SET_INT_PROP(FemSolverBackend, PreconditionerOrder, 0);
+SET_INT_PROP(AmgXSolverBackend, PreconditionerOrder, 0);
 
 //! set the preconditioner relaxation parameter to 1.0 by default
-SET_SCALAR_PROP(FemSolverBackend, PreconditionerRelaxation, 1.0);
-
-//! set the preconditioner relaxation parameter to 1.0 by default
-SET_STRING_PROP(FemSolverBackend, FemSolverParameterFileName, "");
+SET_SCALAR_PROP(AmgXSolverBackend, PreconditionerRelaxation, 1.0);
 
 //! make the linear solver shut up by default
-//SET_SCALAR_PROP(FemSolverBackend, LinearSolverTolerance, 0.01);
+//SET_SCALAR_PROP(AmgXSolverBackend, LinearSolverTolerance, 0.01);
 
 END_PROPERTIES
 
@@ -135,7 +133,7 @@ namespace Linear {
  *            higher orders
  */
 template <class TypeTag>
-class FemSolverBackend
+class AmgXSolverBackend
 {
 protected:
     typedef typename GET_PROP_TYPE(TypeTag, LinearSolverBackend) Implementation;
@@ -152,46 +150,20 @@ protected:
     // discrete function to wrap what is used as Vector in eWoms
     typedef Dune::Fem::ISTLBlockVectorDiscreteFunction< DiscreteFunctionSpace >
         VectorWrapperDiscreteFunction;
-
-    template <int d, class LinOp>
-    struct SolverSelector
-    {
-        typedef Dune::Fem::KrylovInverseOperator< DiscreteFunction >  type;
-    };
-
-#if HAVE_PETSC
-    template <int d>
-    struct SolverSelector< d, Dune::Fem::PetscLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
-    {
-        typedef Dune::Fem::PetscInverseOperator< VectorWrapperDiscreteFunction, LinearOperator >  type;
-    };
-#endif
-
-    template <int d>
-    struct SolverSelector< d, Dune::Fem::ISTLLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
-    {
-        typedef Dune::Fem::ISTLBICGSTABOp< VectorWrapperDiscreteFunction, LinearOperator >  type;
-    };
-
-    // select solver type depending on linear operator type
-    typedef typename SolverSelector<0, typename LinearOperator::ParentType > :: type   InverseLinearOperator;
+    typedef Dune::Fem::PetscDiscreteFunction< DiscreteFunctionSpace >
+        PetscDiscreteFunctionType;
 
     enum { dimWorld = GridView::dimensionworld };
 
 public:
-    FemSolverBackend(const Simulator& simulator)
+    AmgXSolverBackend(const Simulator& simulator)
         : simulator_(simulator)
-        , invOp_()
+        //, amgxSolver_()
         , rhs_( nullptr )
     {
-        std::string paramFileName = EWOMS_GET_PARAM(TypeTag, std::string, FemSolverParameterFileName);
-        if( paramFileName != "" )
-        {
-            Dune::Fem::Parameter::append( paramFileName );
-        }
     }
 
-    ~FemSolverBackend()
+    ~AmgXSolverBackend()
     { cleanup_(); }
 
     /*!
@@ -217,8 +189,25 @@ public:
         EWOMS_REGISTER_PARAM(TypeTag, Scalar, PreconditionerRelaxation,
                              "The relaxation factor of the preconditioner");
 
-        EWOMS_REGISTER_PARAM(TypeTag, std::string, FemSolverParameterFileName,
-                             "The name of the file which contains the parameters for the DUNE-FEM solvers");
+
+        //PreconditionerWrapper::registerParameters();
+
+        // set ilu preconditioner istl
+        Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
+        Dune::Fem::Parameter::append("istl.preconditioning.relaxation", "0.9" );
+        Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
+        Dune::Fem::Parameter::append("fem.solver.errormeasure", "residualreduction" );
+
+        // possible solvers: cg, bicg, bicgstab, gmres
+        Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
+        // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
+        Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
+
+        //int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
+        //if( verbosity )
+        //    Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
+        //else
+        Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
     }
 
     /*!
@@ -234,10 +223,12 @@ public:
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
 
         // reset linear solver
-        invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
-
+        //amgxSolver_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
+        std::string mode = "AmgX_GPU";
+        std::string solverconfig = "./";
+        //amgxSolver.initialize(MPI_COMM_WORLD, mode, solverconfig);
         // not needed
-        asImp_().rescale_();
+        //asImp_().rescale_();
     }
 
     void prepareRhs(const LinearOperator& linOp, Vector& b)
@@ -256,19 +247,39 @@ public:
         VectorWrapperDiscreteFunction X( "FSB::x",   space(), x );
         VectorWrapperDiscreteFunction B( "FSB::rhs", space(), *rhs_ );
 
+        if( ! petscRhs_ )
+        {
+            petscRhs_.reset( new PetscDiscreteFunctionType( "AMGX::rhs", space() ) );
+        }
+        if( ! petscX_ )
+        {
+            petscX_.reset( new PetscDiscreteFunctionType("AMGX::X", space()) );
+        }
+
+        petscRhs_->assign( B );
+        petscX_->clear();
+
         // solve with right hand side rhs and store in x
-        (*invOp_)( B, X );
+        //(*amgxSolver_)( B, X );
+        //amgxSolver_.solve(PetcsX.petcsVector() , PetcsRhs.petcsVector());
+
+        // copy result to ewoms solution
+        X.assign( *petscX_ );
+
+        //amgxSolver_.finalize();
+        //int iters;
+        //amgxSolver_.getIters(iters);
 
         // return the result of the solver
-        return invOp_->iterations() < 0 ? false : true;
+        return true;
     }
 
     /*!
      * \brief Return number of iterations used during last solve.
      */
     size_t iterations () const {
-        assert( invOp_);
-        return std::abs(invOp_->iterations());
+        //assert( amgxSolver_);
+        return 10; //std::abs(amgxSolver_->iterations());
     }
 
 protected:
@@ -282,38 +293,21 @@ protected:
         return simulator_.model().space();
     }
 
-    void rescale_()
-    {
-        /*
-        const auto& overlap = overlappingMatrix_->overlap();
-        for (unsigned domesticRowIdx = 0; domesticRowIdx < overlap.numLocal(); ++domesticRowIdx) {
-            Index nativeRowIdx = overlap.domesticToNative(static_cast<Index>(domesticRowIdx));
-            auto& row = (*overlappingMatrix_)[domesticRowIdx];
-
-            auto colIt = row.begin();
-            const auto& colEndIt = row.end();
-            for (; colIt != colEndIt; ++ colIt) {
-                auto& entry = *colIt;
-                for (unsigned i = 0; i < entry.rows; ++i)
-                    entry[i] *= simulator_.model().eqWeight(nativeRowIdx, i);
-            }
-
-            auto& rhsEntry = (*overlappingb_)[domesticRowIdx];
-            for (unsigned i = 0; i < rhsEntry.size(); ++i)
-                rhsEntry[i] *= simulator_.model().eqWeight(nativeRowIdx, i);
-        }
-        */
-    }
-
     void cleanup_()
     {
-        invOp_.reset();
+        //amgxSolver_.reset();
         rhs_ = nullptr;
+
+        petscRhs_.reset();
+        petscX_.reset();
     }
 
     const Simulator& simulator_;
 
-    std::unique_ptr< InverseLinearOperator > invOp_;
+    std::unique_ptr< PetscDiscreteFunctionType > petscRhs_;
+    std::unique_ptr< PetscDiscreteFunctionType > petscX_;
+
+    //AmgXSolver amgxSolver_;
 
     Vector* rhs_;
 };
