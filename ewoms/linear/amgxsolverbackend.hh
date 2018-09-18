@@ -158,7 +158,7 @@ protected:
 public:
     AmgXSolverBackend(const Simulator& simulator)
         : simulator_(simulator)
-        //, amgxSolver_()
+        , amgxSolver_()
         , rhs_( nullptr )
     {
     }
@@ -223,12 +223,9 @@ public:
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
 
         // reset linear solver
-        //amgxSolver_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
         std::string mode = "AmgX_GPU";
         std::string solverconfig = "./";
-        //amgxSolver.initialize(MPI_COMM_WORLD, mode, solverconfig);
-        // not needed
-        //asImp_().rescale_();
+        amgxSolver.initialize(MPI_COMM_WORLD, mode, solverconfig);
     }
 
     void prepareRhs(const LinearOperator& linOp, Vector& b)
@@ -260,15 +257,13 @@ public:
         petscX_->clear();
 
         // solve with right hand side rhs and store in x
-        //(*amgxSolver_)( B, X );
-        //amgxSolver_.solve(PetcsX.petcsVector() , PetcsRhs.petcsVector());
+        amgxSolver_.solve( petcsX_->petscVector() , petcsRhs_->petscVector() );
 
         // copy result to ewoms solution
         X.assign( *petscX_ );
 
-        //amgxSolver_.finalize();
-        //int iters;
-        //amgxSolver_.getIters(iters);
+        int iters;
+        amgxSolver_.getIters(iters);
 
         // return the result of the solver
         return true;
@@ -296,6 +291,7 @@ protected:
     void cleanup_()
     {
         //amgxSolver_.reset();
+        amgxSolver_.finalize();
         rhs_ = nullptr;
 
         petscRhs_.reset();
@@ -307,7 +303,7 @@ protected:
     std::unique_ptr< PetscDiscreteFunctionType > petscRhs_;
     std::unique_ptr< PetscDiscreteFunctionType > petscX_;
 
-    //AmgXSolver amgxSolver_;
+    AmgXSolver amgxSolver_;
 
     Vector* rhs_;
 };
