@@ -52,6 +52,8 @@
 #include <ewoms/linear/parallelbicgstabbackend.hh>
 #include <ewoms/linear/istlsolverwrappers.hh>
 
+#include <AmgXSolver.hpp>
+
 #include <sstream>
 #include <memory>
 #include <iostream>
@@ -225,7 +227,7 @@ public:
         // reset linear solver
         std::string mode = "AmgX_GPU";
         std::string solverconfig = "./";
-        amgxSolver.initialize(MPI_COMM_WORLD, mode, solverconfig);
+        amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
     }
 
     void prepareRhs(const LinearOperator& linOp, Vector& b)
@@ -257,7 +259,9 @@ public:
         petscX_->clear();
 
         // solve with right hand side rhs and store in x
-        amgxSolver_.solve( petcsX_->petscVector() , petcsRhs_->petscVector() );
+        Vec& p = *(petscX_->petscVec());
+        Vec& rhs = *(petscRhs_->petscVec());
+        amgxSolver_.solve( p, rhs );
 
         // copy result to ewoms solution
         X.assign( *petscX_ );
