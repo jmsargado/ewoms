@@ -189,6 +189,27 @@ public:
         {
             Dune::Fem::Parameter::append( paramFileName );
         }
+        else
+        {
+            // default parameters
+            Dune::Fem::Parameter::append("fem.solver.errormeasure", "residualreduction" );
+            Dune::Fem::Parameter::append("fem.solver.verbose", "false" );
+
+            // istl solver parameters
+            Dune::Fem::Parameter::append("istl.preconditioning.method",     "ilu" );
+            Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
+            Dune::Fem::Parameter::append("istl.preconditioning.relaxation", "0.9" );
+
+            // petsc solver parameters
+            Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
+            Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu" );
+            Dune::Fem::Parameter::append("petsc.preconditioning.levels", "0" );
+
+            // if lu is chosen as preconditioner
+            Dune::Fem::Parameter::append("petsc.preconditioning.lu.method", "petsc" );
+            // if hypre is chosen as preconditioner
+            Dune::Fem::Parameter::append("petsc.preconditioning.hypre.method", "boomer-amg" );
+        }
     }
 
     ~FemSolverBackend()
@@ -234,7 +255,12 @@ public:
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
 
         // reset linear solver
-        invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
+        //if( ! invOp_ )
+        //{
+            invOp_.reset( new InverseLinearOperator( op, linearSolverTolerance, linearSolverAbsTolerance ) );
+        //}
+
+        //nvOp_->bind( op );
 
         // not needed
         asImp_().rescale_();
