@@ -190,26 +190,6 @@ public:
                              "The order of the preconditioner");
         EWOMS_REGISTER_PARAM(TypeTag, Scalar, PreconditionerRelaxation,
                              "The relaxation factor of the preconditioner");
-
-
-        //PreconditionerWrapper::registerParameters();
-
-        // set ilu preconditioner istl
-        Dune::Fem::Parameter::append("istl.preconditioning.method", "ilu" );
-        Dune::Fem::Parameter::append("istl.preconditioning.relaxation", "0.9" );
-        Dune::Fem::Parameter::append("istl.preconditioning.iterations", "0" );
-        Dune::Fem::Parameter::append("fem.solver.errormeasure", "residualreduction" );
-
-        // possible solvers: cg, bicg, bicgstab, gmres
-        Dune::Fem::Parameter::append("petsc.kspsolver.method", "bicgstab" );
-        // possible precond: none, asm, sor, jacobi, hypre, ilu-n, lu, icc ml superlu mumps
-        Dune::Fem::Parameter::append("petsc.preconditioning.method", "ilu");
-
-        //int verbosity = EWOMS_GET_PARAM(TypeTag, int, LinearSolverVerbosity);
-        //if( verbosity )
-        //    Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
-        //else
-        Dune::Fem::Parameter::append("fem.solver.verbose", "true" );
     }
 
     /*!
@@ -225,7 +205,7 @@ public:
         Scalar linearSolverAbsTolerance = this->simulator_.model().newtonMethod().tolerance() / 100000.0;
 
         // reset linear solver
-        std::string mode = "AmgX_GPU";
+        std::string mode = "dDDI";
         std::string solverconfig = "./";
         amgxSolver_.initialize(MPI_COMM_WORLD, mode, solverconfig);
     }
