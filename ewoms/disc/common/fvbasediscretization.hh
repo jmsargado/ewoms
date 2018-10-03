@@ -173,7 +173,14 @@ private:
         {}
 
         // adjust to ewoms matrixbackend interface
-        void finalize() { this->communicate(); }
+        void finalize( const bool finalAssembly = true )
+        {
+#if USE_DUNE_FEM_PETSC_SOLVERS
+          this->communicate( finalAssembly );
+#else
+          this->communicate();
+#endif
+        }
         void clearRow( const size_t row, const Scalar diag = 1.0 ) { this->unitRow( row ); }
     };
 public:

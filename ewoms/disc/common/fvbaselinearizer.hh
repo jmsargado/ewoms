@@ -164,6 +164,7 @@ public:
     void linearize()
     {
         linearizeDomain();
+        finalize( false );
         linearizeAuxiliaryEquations();
     }
 

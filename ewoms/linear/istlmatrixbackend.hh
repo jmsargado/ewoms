@@ -176,7 +176,7 @@ public:
     /*!
      * \brief Synchronize matrix and finalize building stage.
      */
-    void finalize()
+    void finalize( const bool finalAssembly = true )
     {
         // nothing to do here
         // may call compress when implicit build mode is used
