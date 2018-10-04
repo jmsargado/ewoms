@@ -172,14 +172,17 @@ private:
             : LinearOperator("eWoms::Jacobian", simulator.model().space(), simulator.model().space() )
         {}
 
-        // adjust to ewoms matrixbackend interface
-        void finalize( const bool finalAssembly = true )
+        void flushAssembly()
         {
 #if USE_DUNE_FEM_PETSC_SOLVERS
-          this->communicate( finalAssembly );
-#else
-          this->communicate();
+            ParentType :: flushAssembly();
 #endif
+        }
+
+        // adjust to ewoms matrixbackend interface
+        void finalize( )
+        {
+          this->communicate();
         }
         void clearRow( const size_t row, const Scalar diag = 1.0 ) { this->unitRow( row ); }
     };

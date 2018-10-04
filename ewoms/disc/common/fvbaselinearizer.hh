@@ -164,7 +164,7 @@ public:
     void linearize()
     {
         linearizeDomain();
-        finalize( false );
+        jacobian_->flushAssembly();
         linearizeAuxiliaryEquations();
     }
 
