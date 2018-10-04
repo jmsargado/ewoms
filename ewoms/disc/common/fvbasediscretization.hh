@@ -172,11 +172,9 @@ private:
             : LinearOperator("eWoms::Jacobian", simulator.model().space(), simulator.model().space() )
         {}
 
-        void flushAssembly()
+        void flush()
         {
-#if USE_DUNE_FEM_PETSC_SOLVERS
-            ParentType :: flushAssembly();
-#endif
+          this->flushAssembly();
         }
 
         // adjust to ewoms matrixbackend interface
