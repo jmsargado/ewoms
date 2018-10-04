@@ -174,9 +174,17 @@ public:
     }
 
     /*!
+     * \brief Flush matrix from local caches into matrix structure Synchronize matrix (empty here)
+     */
+    void flush( )
+    {
+
+    }
+
+    /*!
      * \brief Synchronize matrix and finalize building stage.
      */
-    void finalize( const bool finalAssembly = true )
+    void finalize( )
     {
         // nothing to do here
         // may call compress when implicit build mode is used

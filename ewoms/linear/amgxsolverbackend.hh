@@ -31,7 +31,7 @@
 
 #if USE_AMGX_SOLVERS
 
-#if ! HAVE_PETSC && ! HAVE_AMGXSOLVER
+#if ! HAVE_PETSC || ! HAVE_AMGXSOLVER
 #error "PETSc and AmgXSolver is needed for the AMGX solver backend"
 #endif
 
