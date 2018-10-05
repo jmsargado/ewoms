@@ -230,6 +230,9 @@ public:
      */
     void linearizeAuxiliaryEquations()
     {
+        // flush possible local caches into matrix structure
+        jacobian_->flush();
+
         auto& model = model_();
         const auto& comm = simulator_().gridView().comm();
         for (unsigned auxModIdx = 0; auxModIdx < model.numAuxiliaryModules(); ++auxModIdx) {

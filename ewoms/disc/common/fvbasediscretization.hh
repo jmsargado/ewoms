@@ -172,8 +172,16 @@ private:
             : LinearOperator("eWoms::Jacobian", simulator.model().space(), simulator.model().space() )
         {}
 
+        void flush()
+        {
+          this->flushAssembly();
+        }
+
         // adjust to ewoms matrixbackend interface
-        void finalize() { this->communicate(); }
+        void finalize( )
+        {
+          this->communicate();
+        }
         void clearRow( const size_t row, const Scalar diag = 1.0 ) { this->unitRow( row ); }
     };
 public:
