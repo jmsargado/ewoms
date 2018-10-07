@@ -76,6 +76,8 @@
 #include <dune/fem/function/blockvectorfunction.hh>
 #include <dune/fem/misc/capabilities.hh>
 
+#include <dune/fem/operator/linear/spoperator.hh>
+
 #if HAVE_PETSC
 #include <dune/fem/operator/linear/petscoperator.hh>
 #endif
@@ -159,6 +161,8 @@ private:
 
 #if USE_DUNE_FEM_PETSC_SOLVERS
     typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > LinearOperator;
+#elif USE_DUNE_FEM_VIENNACL_SOLVERS
+    typedef Dune::Fem::SparsRowLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #else
     typedef Dune::Fem::ISTLLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #endif
