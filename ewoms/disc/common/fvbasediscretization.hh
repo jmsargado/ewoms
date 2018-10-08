@@ -162,7 +162,7 @@ private:
 #if USE_DUNE_FEM_PETSC_SOLVERS
     typedef Dune::Fem::PetscLinearOperator< DiscreteFunction, DiscreteFunction > LinearOperator;
 #elif USE_DUNE_FEM_VIENNACL_SOLVERS
-    typedef Dune::Fem::SparsRowLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
+    typedef Dune::Fem::SparseRowLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #else
     typedef Dune::Fem::ISTLLinearOperator < DiscreteFunction, DiscreteFunction > LinearOperator;
 #endif

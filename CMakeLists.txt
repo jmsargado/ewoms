@@ -143,6 +143,11 @@ EwomsAddApplication(ebos_fempetsc
                     EXE_NAME ebos_fempetsc
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
 
+EwomsAddApplication(ebos_femviennacl
+                    SOURCES ebos/ebos_femviennacl.cc
+                    EXE_NAME ebos_femviennacl
+                    CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+
 EwomsAddApplication(ebos_amgxpetsc
                     SOURCES ebos/ebos_amgxpetsc.cc
                     EXE_NAME ebos_amgxpetsc

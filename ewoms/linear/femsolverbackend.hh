@@ -176,7 +176,7 @@ protected:
     template <int d>
     struct SolverSelector< d, Dune::Fem::SparseRowLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
     {
-        typedef Dune::Fem::ViennaCLInverseOperator< VectorWrapperDiscreteFunction, LinearOperator >  type;
+        typedef Dune::Fem::ViennaCLInverseOperator< VectorWrapperDiscreteFunction >  type;
     };
 #endif
 
