@@ -143,15 +143,19 @@ EwomsAddApplication(ebos_fempetsc
                     EXE_NAME ebos_fempetsc
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
 
+if( VIENNACL_FOUND)
 EwomsAddApplication(ebos_femviennacl
                     SOURCES ebos/ebos_femviennacl.cc
                     EXE_NAME ebos_femviennacl
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+endif()
 
+if ( AMGXSOLVER_FOUND )
 EwomsAddApplication(ebos_amgxpetsc
                     SOURCES ebos/ebos_amgxpetsc.cc
                     EXE_NAME ebos_amgxpetsc
                     CONDITION OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
+endif()
 
 if(OPM_GRID_FOUND AND HAVE_ECL_INPUT AND HAVE_ECL_OUTPUT)
   install(TARGETS ebos DESTINATION bin)
