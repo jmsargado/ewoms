@@ -36,6 +36,11 @@
 #include <dune/fem/solver/petscsolver.hh>
 #include <dune/fem/solver/krylovinverseoperators.hh>
 
+#if HAVE_VIENNACL
+#include <dune/fem/solver/viennacl.hh>
+#endif
+
+
 #include <ewoms/common/genericguard.hh>
 #include <ewoms/common/propertysystem.hh>
 #include <ewoms/common/parametersystem.hh>
@@ -164,6 +169,14 @@ protected:
     struct SolverSelector< d, Dune::Fem::PetscLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
     {
         typedef Dune::Fem::PetscInverseOperator< VectorWrapperDiscreteFunction, LinearOperator >  type;
+    };
+#endif
+
+#if HAVE_VIENNACL
+    template <int d>
+    struct SolverSelector< d, Dune::Fem::SparseRowLinearOperator< VectorWrapperDiscreteFunction, VectorWrapperDiscreteFunction > >
+    {
+        typedef Dune::Fem::ViennaCLInverseOperator< VectorWrapperDiscreteFunction >  type;
     };
 #endif
 
